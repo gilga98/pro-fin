@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pro-Finance: Advanced Client-Side Financial Planning with Monte Carlo Simulations, Tax Optimization, and Family Office Mode">
+  <title>Pro-Finance | Smart Financial Planning</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/charts.css">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2310b981'/%3E%3Cpath d='M30 55 L45 70 L75 35' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-logo">
+        <div class="app-logo-icon">💰</div>
+        <div class="app-logo-text">Pro<span>Finance</span></div>
+      </div>
+      
+      <!-- View Tabs -->
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="flow">
+          <span class="view-tab-icon">🌊</span>
+          <span>The Flow</span>
+        </button>
+        <button class="view-tab reservoir" data-view="reservoir">
+          <span class="view-tab-icon">🏦</span>
+          <span>The Reservoir</span>
+        </button>
+      </div>
+      
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <button class="notification-btn" id="notification-btn" data-tooltip="Notifications">
+          🔔
+          <span class="notification-badge" id="notification-count" style="display: none;">0</span>
+        </button>
+        <button class="btn btn-secondary" id="settings-btn">
+          ⚙️ Settings
+        </button>
+        <button class="btn btn-primary" id="add-data-btn">
+          ➕ Add Data
+        </button>
+      </div>
+    </header>
+    
+    <!-- Sidebar - Family Office -->
+    <aside class="app-sidebar">
+      <!-- Entities Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Family Office</div>
+        <div id="entities-list">
+          <div class="entity-card active" data-entity="user">
+            <div class="entity-avatar">GS</div>
+            <div class="entity-info">
+              <div class="entity-name">Primary User</div>
+              <div class="entity-role">Main Income</div>
+            </div>
+          </div>
+        </div>
+        <button class="add-entity-btn" id="add-entity-btn">
+          ➕ Add Family Member
+        </button>
+      </div>
+      
+      <!-- Quick Stats -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Net Worth</div>
+        <div class="card" style="padding: var(--space-4);">
+          <div class="stat-label">Total Assets</div>
+          <div class="stat-value text-gradient" id="total-assets">₹0</div>
+          <div class="stat-label mt-4">Total Liabilities</div>
+          <div class="stat-value text-danger" id="total-liabilities">₹0</div>
+          <div style="border-top: var(--glass-border); margin-top: var(--space-4); padding-top: var(--space-4);">
+            <div class="stat-label">Net Worth</div>
+            <div class="stat-value" id="net-worth" style="font-size: var(--font-size-2xl);">₹0</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Goals Overview -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Goals Progress</div>
+        <div id="goals-summary">
+          <div class="empty-state" style="padding: var(--space-6);">
+            <div style="font-size: 2rem; margin-bottom: var(--space-2);">🎯</div>
+            <p class="text-muted" style="font-size: var(--font-size-sm);">No goals set yet</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Flow View -->
+      <section class="view-container active" id="flow-view">
+        <div class="dashboard-header">
+          <div>
+            <h1 class="dashboard-title">The Flow <span class="text-gradient">💧</span></h1>
+            <p class="dashboard-subtitle">Real-time visualization of your money movement</p>
+          </div>
+          <div class="dashboard-date">
+            <div class="dashboard-date-label">Financial Year</div>
+            <div class="dashboard-date-value">2025-26</div>
+          </div>
+        </div>
+        
+        <!-- Quick Stats Row -->
+        <div class="grid-4 mb-8" id="flow-stats">
+          <div class="stat-card">
+            <div class="stat-icon income">📈</div>
+            <div class="stat-content">
+              <div class="stat-label">Monthly Income</div>
+              <div class="stat-value" id="monthly-income">₹0</div>
+              <div class="card-trend positive mt-2">
+                <span>↑</span> <span>Net of Tax</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon expense">📉</div>
+            <div class="stat-content">
+              <div class="stat-label">Fixed Expenses</div>
+              <div class="stat-value" id="fixed-expenses">₹0</div>
+              <div class="card-trend negative mt-2">
+                <span>EMI + Bills</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon savings">💎</div>
+            <div class="stat-content">
+              <div class="stat-label">Goal SIPs</div>
+              <div class="stat-value" id="goal-sips">₹0</div>
+              <div class="card-trend positive mt-2">
+                <span>→</span> <span>Investments</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon investment">🎉</div>
+            <div class="stat-content">
+              <div class="stat-label">Dispensable</div>
+              <div class="stat-value" id="dispensable">₹0</div>
+              <div class="card-trend positive mt-2">
+                <span>Fun Money</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Sankey Diagram -->
+        <div class="chart-container sankey-container mb-8">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Money Flow Visualization</h3>
+              <p class="chart-subtitle">See where every rupee goes</p>
+            </div>
+          </div>
+          <div class="chart-body" id="sankey-chart">
+            <div class="empty-state">
+              <div class="empty-state-icon">🌊</div>
+              <h4 class="empty-state-title">No Income Data Yet</h4>
+              <p class="empty-state-text">Add your income and expenses to see the money flow</p>
+              <button class="btn btn-primary" onclick="ProFinance.ui.showAddDataModal('income')">
+                Add Income Source
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Waterfall Chart -->
+        <div class="chart-container waterfall-container">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Monthly Breakdown</h3>
+              <p class="chart-subtitle">Gross to Dispensable waterfall</p>
+            </div>
+            <div class="chart-legend">
+              <div class="chart-legend-item">
+                <div class="chart-legend-color" style="background: var(--accent-primary);"></div>
+                <span>Income</span>
+              </div>
+              <div class="chart-legend-item">
+                <div class="chart-legend-color" style="background: var(--accent-danger);"></div>
+                <span>Outflow</span>
+              </div>
+              <div class="chart-legend-item">
+                <div class="chart-legend-color" style="background: var(--accent-secondary);"></div>
+                <span>Balance</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-body" id="waterfall-chart"></div>
+        </div>
+      </section>
+      
+      <!-- Reservoir View -->
+      <section class="view-container" id="reservoir-view">
+        <div class="dashboard-header">
+          <div>
+            <h1 class="dashboard-title">The Reservoir <span class="text-gradient-purple">🏦</span></h1>
+            <p class="dashboard-subtitle">Future wealth projections and goal tracking</p>
+          </div>
+          <div class="flex gap-4">
+            <div class="tabs" style="margin-bottom: 0;">
+              <button class="tab active" data-value="today">Today's Value</button>
+              <button class="tab" data-value="future">Future Value</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Goals Grid -->
+        <div class="grid-3 mb-8" id="goals-grid">
+          <!-- Goals will be dynamically populated -->
+          <div class="card" style="border: 2px dashed var(--bg-tertiary); display: flex; align-items: center; justify-content: center; min-height: 280px;">
+            <div class="empty-state" style="padding: 0;">
+              <div class="empty-state-icon">🎯</div>
+              <h4 class="empty-state-title">Add Your First Goal</h4>
+              <p class="empty-state-text">Define what you're saving for</p>
+              <button class="btn btn-primary" onclick="ProFinance.ui.showGoalModal()">
+                ➕ Create Goal
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Projection Chart -->
+        <div class="chart-container chart-container-full">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Wealth Projection</h3>
+              <p class="chart-subtitle">Monte Carlo simulation with 1000 scenarios</p>
+            </div>
+            <div class="probability-indicator">
+              <div class="probability-ring">
+                <svg viewBox="0 0 60 60">
+                  <circle class="probability-ring-bg" cx="30" cy="30" r="26"></circle>
+                  <circle class="probability-ring-fill high" cx="30" cy="30" r="26" 
+                          stroke-dasharray="163.36" stroke-dashoffset="163.36" id="probability-ring"></circle>
+                </svg>
+                <span class="probability-value" id="probability-value">--%</span>
+              </div>
+              <span class="probability-label">Success Rate</span>
+            </div>
+          </div>
+          <div class="chart-body" id="projection-chart"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+  
+  <!-- Modal: Add Data -->
+  <div class="modal-overlay" id="add-data-modal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Financial Data</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('add-data-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs mb-6" id="data-type-tabs">
+          <button class="tab active" data-type="income">💰 Income</button>
+          <button class="tab" data-type="expense">💸 Expenses</button>
+          <button class="tab" data-type="asset">📊 Assets</button>
+          <button class="tab" data-type="liability">📋 Liabilities</button>
+        </div>
+        
+        <!-- Asset Type Selection -->
+        <div id="asset-type-selection" style="display: none;">
+          <h4 class="mb-4">Select Asset Type</h4>
+          <div class="asset-type-grid" id="asset-type-grid">
+            <!-- Physical Assets -->
+            <div class="asset-type-card" data-asset="gold">
+              <div class="asset-type-icon physical">🪙</div>
+              <div class="asset-type-name">Gold</div>
+              <div class="asset-type-return">8-12% avg</div>
+            </div>
+            <div class="asset-type-card" data-asset="land">
+              <div class="asset-type-icon physical">🏞️</div>
+              <div class="asset-type-name">Land</div>
+              <div class="asset-type-return">10-15% avg</div>
+            </div>
+            <div class="asset-type-card" data-asset="real-estate">
+              <div class="asset-type-icon physical">🏠</div>
+              <div class="asset-type-name">Real Estate</div>
+              <div class="asset-type-return">8-12% avg</div>
+            </div>
+            <!-- Debt Instruments -->
+            <div class="asset-type-card" data-asset="fd">
+              <div class="asset-type-icon debt">🏦</div>
+              <div class="asset-type-name">Fixed Deposit</div>
+              <div class="asset-type-return">6-7% fixed</div>
+            </div>
+            <div class="asset-type-card" data-asset="ppf">
+              <div class="asset-type-icon debt">📜</div>
+              <div class="asset-type-name">PPF</div>
+              <div class="asset-type-return">7.1% fixed</div>
+            </div>
+            <div class="asset-type-card" data-asset="bonds">
+              <div class="asset-type-icon debt">📃</div>
+              <div class="asset-type-name">Bonds/NSC</div>
+              <div class="asset-type-return">6-8% fixed</div>
+            </div>
+            <!-- Equity -->
+            <div class="asset-type-card" data-asset="stocks">
+              <div class="asset-type-icon equity">📈</div>
+              <div class="asset-type-name">Direct Stocks</div>
+              <div class="asset-type-return">12-15% avg</div>
+            </div>
+            <div class="asset-type-card" data-asset="mutual-funds">
+              <div class="asset-type-icon equity">📊</div>
+              <div class="asset-type-name">Mutual Funds</div>
+              <div class="asset-type-return">10-14% avg</div>
+            </div>
+            <div class="asset-type-card" data-asset="elss">
+              <div class="asset-type-icon equity">🛡️</div>
+              <div class="asset-type-name">ELSS</div>
+              <div class="asset-type-return">10-14% avg</div>
+            </div>
+            <!-- Retirement -->
+            <div class="asset-type-card" data-asset="epf">
+              <div class="asset-type-icon retirement">👴</div>
+              <div class="asset-type-name">EPF</div>
+              <div class="asset-type-return">8.1% fixed</div>
+            </div>
+            <div class="asset-type-card" data-asset="nps">
+              <div class="asset-type-icon retirement">🏛️</div>
+              <div class="asset-type-name">NPS</div>
+              <div class="asset-type-return">9-11% avg</div>
+            </div>
+            <!-- Alternative -->
+            <div class="asset-type-card" data-asset="private-loan">
+              <div class="asset-type-icon debt">🤝</div>
+              <div class="asset-type-name">Loans Given</div>
+              <div class="asset-type-return">Variable</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Dynamic Form Container -->
+        <div id="data-form-container">
+          <!-- Income Form -->
+          <form id="income-form" class="data-form">
+            <div class="form-group">
+              <label class="form-label required">Income Source Name</label>
+              <input type="text" class="form-input" name="name" placeholder="e.g., Salary, Freelance" required>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label required">Monthly Amount</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="amount" placeholder="0" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Income Type</label>
+                <select class="form-select" name="type">
+                  <option value="salary">Salary</option>
+                  <option value="business">Business Income</option>
+                  <option value="freelance">Freelance</option>
+                  <option value="rental">Rental Income</option>
+                  <option value="dividend">Dividends</option>
+                  <option value="interest">Interest</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Entity</label>
+              <select class="form-select" name="entity" id="income-entity-select">
+                <option value="user">Primary User</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-check">
+                <input type="checkbox" class="form-check-input" name="taxable" checked>
+                <span>Taxable Income</span>
+              </label>
+            </div>
+          </form>
+          
+          <!-- Expense Form (initially hidden) -->
+          <form id="expense-form" class="data-form" style="display: none;">
+            <div class="form-group">
+              <label class="form-label required">Expense Name</label>
+              <input type="text" class="form-input" name="name" placeholder="e.g., Rent, EMI, Utilities" required>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label required">Monthly Amount</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="amount" placeholder="0" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select class="form-select" name="category">
+                  <option value="housing">Housing (Rent/EMI)</option>
+                  <option value="utilities">Utilities</option>
+                  <option value="transport">Transport</option>
+                  <option value="groceries">Groceries</option>
+                  <option value="insurance">Insurance</option>
+                  <option value="education">Education</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="lifestyle">Lifestyle</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <div class="flex gap-4">
+                <label class="form-check">
+                  <input type="radio" class="form-check-input" name="expenseType" value="fixed" checked>
+                  <span>Fixed Expense</span>
+                </label>
+                <label class="form-check">
+                  <input type="radio" class="form-check-input" name="expenseType" value="variable">
+                  <span>Variable Expense</span>
+                </label>
+              </div>
+            </div>
+          </form>
+          
+          <!-- Asset Form (initially hidden) -->
+          <form id="asset-form" class="data-form" style="display: none;">
+            <div class="form-group">
+              <label class="form-label required">Asset Name</label>
+              <input type="text" class="form-input" name="name" placeholder="e.g., HDFC Gold ETF, Paternal Land" required>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label required">Current Value</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="currentValue" placeholder="0" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Purchase Value</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="purchaseValue" placeholder="0">
+                </div>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Expected Return (%)</label>
+                <input type="number" class="form-input" name="expectedReturn" placeholder="12" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Volatility (%)</label>
+                <input type="number" class="form-input" name="volatility" placeholder="15" step="0.1">
+                <span class="form-hint">Standard deviation for Monte Carlo</span>
+              </div>
+            </div>
+            <input type="hidden" name="assetType" id="selected-asset-type">
+          </form>
+          
+          <!-- Liability Form (initially hidden) -->
+          <form id="liability-form" class="data-form" style="display: none;">
+            <div class="form-group">
+              <label class="form-label required">Loan Name</label>
+              <input type="text" class="form-input" name="name" placeholder="e.g., Home Loan, Car Loan" required>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label required">Outstanding Principal</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="principal" placeholder="0" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label required">Interest Rate (%)</label>
+                <input type="number" class="form-input" name="interestRate" placeholder="8.5" step="0.01" required>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label required">EMI Amount</label>
+                <div class="form-input-wrapper">
+                  <span class="form-input-prefix">₹</span>
+                  <input type="number" class="form-input currency" name="emi" placeholder="0" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Remaining Tenure (months)</label>
+                <input type="number" class="form-input" name="tenure" placeholder="120">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Loan Type</label>
+              <select class="form-select" name="loanType">
+                <option value="home">Home Loan</option>
+                <option value="car">Car Loan</option>
+                <option value="education">Education Loan</option>
+                <option value="personal">Personal Loan</option>
+                <option value="credit-card">Credit Card</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="ProFinance.ui.closeModal('add-data-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="ProFinance.data.saveCurrentForm()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Create Goal -->
+  <div class="modal-overlay" id="goal-modal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🎯 Create Financial Goal</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('goal-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="goal-form">
+          <div class="form-group">
+            <label class="form-label required">Goal Name</label>
+            <input type="text" class="form-input" name="name" placeholder="e.g., Dream House, Child's Education" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Goal Category</label>
+            <div class="asset-type-grid" style="grid-template-columns: repeat(4, 1fr);">
+              <div class="asset-type-card selected" data-goal-type="house">
+                <div class="asset-type-icon" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-secondary);">🏠</div>
+                <div class="asset-type-name">House</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="retirement">
+                <div class="asset-type-icon" style="background: rgba(139, 92, 246, 0.2); color: var(--accent-purple);">👴</div>
+                <div class="asset-type-name">Retirement</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="education">
+                <div class="asset-type-icon" style="background: rgba(245, 158, 11, 0.2); color: var(--accent-warning);">🎓</div>
+                <div class="asset-type-name">Education</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="car">
+                <div class="asset-type-icon" style="background: rgba(16, 185, 129, 0.2); color: var(--accent-primary);">🚗</div>
+                <div class="asset-type-name">Car</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="wedding">
+                <div class="asset-type-icon" style="background: rgba(236, 72, 153, 0.2); color: #ec4899;">💍</div>
+                <div class="asset-type-name">Wedding</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="travel">
+                <div class="asset-type-icon" style="background: rgba(14, 165, 233, 0.2); color: #0ea5e9;">✈️</div>
+                <div class="asset-type-name">Travel</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="emergency">
+                <div class="asset-type-icon" style="background: rgba(239, 68, 68, 0.2); color: var(--accent-danger);">🚨</div>
+                <div class="asset-type-name">Emergency</div>
+              </div>
+              <div class="asset-type-card" data-goal-type="other">
+                <div class="asset-type-icon" style="background: rgba(107, 114, 128, 0.2); color: var(--text-muted);">📦</div>
+                <div class="asset-type-name">Other</div>
+              </div>
+            </div>
+            <input type="hidden" name="goalType" value="house">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label required">Target Amount (Today's Value)</label>
+              <div class="form-input-wrapper">
+                <span class="form-input-prefix">₹</span>
+                <input type="number" class="form-input currency" name="targetAmount" placeholder="2000000" required>
+              </div>
+              <span class="form-hint">What it would cost today</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">Target Date</label>
+              <input type="month" class="form-input" name="targetDate" required>
+            </div>
+          </div>
+          <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4);">
+            <div class="flex justify-between mb-2">
+              <span class="text-muted">Inflation Adjustment (6%)</span>
+              <label class="toggle">
+                <input type="checkbox" name="inflationAdjust" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>Future Value:</span>
+              <span class="stat-value" id="goal-future-value" style="font-size: var(--font-size-xl);">₹0</span>
+            </div>
+          </div>
+          <div class="form-group mt-4">
+            <label class="form-label">Funding Sources</label>
+            <div id="funding-sources-checkboxes" class="flex gap-4 flex-wrap">
+              <label class="form-check">
+                <input type="checkbox" class="form-check-input" name="fundingSources" value="user" checked>
+                <span>Primary User</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select class="form-select" name="priority">
+              <option value="1">🔴 High Priority</option>
+              <option value="2" selected>🟡 Medium Priority</option>
+              <option value="3">🟢 Low Priority</option>
+            </select>
+          </div>
+          
+          <!-- Funding Type Selection -->
+          <div class="form-group mt-4">
+            <label class="form-label">How will you fund this goal?</label>
+            <div class="flex gap-4">
+              <label class="form-check">
+                <input type="radio" class="form-check-input" name="fundingType" value="cash" checked onchange="ProFinance.ui.toggleLoanFields(false)">
+                <span>💰 100% Cash/Savings</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" class="form-check-input" name="fundingType" value="loan" onchange="ProFinance.ui.toggleLoanFields(true)">
+                <span>🏦 Loan + Downpayment</span>
+              </label>
+            </div>
+          </div>
+          
+          <!-- Loan Details (hidden by default) -->
+          <div id="loan-details-section" style="display: none;">
+            <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4); border-left: 3px solid var(--accent-warning);">
+              <h5 class="mb-3">🏦 Loan Details</h5>
+              <div class="grid-3">
+                <div class="form-group">
+                  <label class="form-label">Downpayment %</label>
+                  <input type="number" class="form-input" name="downpaymentPercent" value="20" min="0" max="100" onchange="ProFinance.ui.updateLoanPreview()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Loan Rate (%)</label>
+                  <input type="number" class="form-input" name="loanInterestRate" value="8.5" step="0.1" onchange="ProFinance.ui.updateLoanPreview()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tenure (years)</label>
+                  <input type="number" class="form-input" name="loanTenureYears" value="20" min="1" max="30" onchange="ProFinance.ui.updateLoanPreview()">
+                </div>
+              </div>
+              <div class="card mt-3" style="background: rgba(139, 92, 246, 0.1); padding: var(--space-3);">
+                <div class="grid-3 text-center">
+                  <div>
+                    <div class="text-muted text-sm">Downpayment</div>
+                    <div class="font-semibold" id="loan-downpayment-preview">₹0</div>
+                    <div class="text-xs text-success">Save via SIP</div>
+                  </div>
+                  <div>
+                    <div class="text-muted text-sm">Loan Amount</div>
+                    <div class="font-semibold" id="loan-amount-preview">₹0</div>
+                  </div>
+                  <div>
+                    <div class="text-muted text-sm">Monthly EMI</div>
+                    <div class="font-semibold text-warning" id="loan-emi-preview">₹0</div>
+                    <div class="text-xs text-muted">After purchase</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="ProFinance.ui.closeModal('goal-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="ProFinance.goals.save()">🎯 Create Goal</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Trade-off Slider -->
+  <div class="modal-overlay" id="tradeoff-modal">
+    <div class="modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <h3 class="modal-title">⚖️ Goal Trade-off Optimizer</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('tradeoff-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="card mb-4" style="background: rgba(239, 68, 68, 0.1); border-color: var(--accent-danger);">
+          <div class="flex items-center gap-3">
+            <span style="font-size: 2rem;">⚠️</span>
+            <div>
+              <h4 style="color: var(--accent-danger);">Goal Not Achievable</h4>
+              <p class="text-muted">Current savings rate won't meet your target. Adjust the sliders below.</p>
+            </div>
+          </div>
+        </div>
+        
+        <div id="tradeoff-goal-summary" class="mb-6">
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">Goal:</span>
+            <span class="font-semibold" id="tradeoff-goal-name">-</span>
+          </div>
+          <div class="flex justify-between mb-2">
+            <span class="text-muted">Target:</span>
+            <span class="font-semibold" id="tradeoff-target">₹0</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted">Current Probability:</span>
+            <span class="badge badge-danger" id="tradeoff-current-prob">0%</span>
+          </div>
+        </div>
+        
+        <div class="tradeoff-slider">
+          <div class="tradeoff-header">
+            <span class="tradeoff-label">⏰ Delay Goal By</span>
+            <span class="tradeoff-value" id="delay-value">0 months</span>
+          </div>
+          <input type="range" class="tradeoff-input" id="delay-slider" min="0" max="60" value="0">
+          <div class="tradeoff-labels">
+            <span>No delay</span>
+            <span>+5 years</span>
+          </div>
+        </div>
+        
+        <div class="tradeoff-slider">
+          <div class="tradeoff-header">
+            <span class="tradeoff-label">📈 Investment Risk Level</span>
+            <span class="tradeoff-value" id="risk-value">Moderate (12%)</span>
+          </div>
+          <input type="range" class="tradeoff-input" id="risk-slider" min="6" max="18" value="12">
+          <div class="tradeoff-labels">
+            <span>Conservative (6%)</span>
+            <span>Aggressive (18%)</span>
+          </div>
+        </div>
+        
+        <div class="tradeoff-slider">
+          <div class="tradeoff-header">
+            <span class="tradeoff-label">🎯 Reduce Target By</span>
+            <span class="tradeoff-value" id="reduce-value">0%</span>
+          </div>
+          <input type="range" class="tradeoff-input" id="reduce-slider" min="0" max="50" value="0">
+          <div class="tradeoff-labels">
+            <span>Full target</span>
+            <span>-50% target</span>
+          </div>
+        </div>
+        
+        <div class="card mt-6" style="background: var(--bg-tertiary);">
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-muted mb-1">New Probability of Success</div>
+              <div class="stat-value text-gradient" id="tradeoff-new-prob">0%</div>
+            </div>
+            <div class="probability-indicator">
+              <div class="probability-ring">
+                <svg viewBox="0 0 60 60">
+                  <circle class="probability-ring-bg" cx="30" cy="30" r="26"></circle>
+                  <circle class="probability-ring-fill high" cx="30" cy="30" r="26" 
+                          stroke-dasharray="163.36" stroke-dashoffset="163.36" id="tradeoff-prob-ring"></circle>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="ProFinance.ui.closeModal('tradeoff-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="ProFinance.goals.applyTradeoff()">✅ Apply Changes</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Life Event (Salary Hike) -->
+  <div class="modal-overlay" id="life-event-modal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header" style="background: var(--gradient-flow); color: var(--text-inverse);">
+        <h3 class="modal-title">🎉 Congratulations!</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('life-event-modal')" style="background: rgba(255,255,255,0.2); color: white;">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-6">
+          <div style="font-size: 4rem; margin-bottom: var(--space-2);">📈</div>
+          <h4>Income Increase Detected!</h4>
+          <p class="text-muted">We noticed your monthly income increased by <strong class="text-success" id="hike-amount">₹0</strong></p>
+        </div>
+        
+        <p class="mb-4">What would you like to do with this extra income?</p>
+        
+        <div class="flex flex-col gap-3">
+          <button class="btn btn-outline" style="justify-content: flex-start; text-align: left; padding: var(--space-4);" onclick="ProFinance.lifeEvents.selectOption('accelerate')">
+            <span style="font-size: 1.5rem; margin-right: var(--space-3);">🚀</span>
+            <div>
+              <div class="font-semibold">Accelerate Goals</div>
+              <div class="text-muted text-sm">Reach your <span id="accelerate-goal">House</span> goal <strong class="text-success" id="accelerate-months">0 months</strong> earlier</div>
+            </div>
+          </button>
+          
+          <button class="btn btn-outline" style="justify-content: flex-start; text-align: left; padding: var(--space-4);" onclick="ProFinance.lifeEvents.selectOption('lifestyle')">
+            <span style="font-size: 1.5rem; margin-right: var(--space-3);">🎉</span>
+            <div>
+              <div class="font-semibold">Increase Lifestyle Spending</div>
+              <div class="text-muted text-sm">Add <strong id="lifestyle-amount">₹0</strong>/month to your Fun Money</div>
+            </div>
+          </button>
+          
+          <button class="btn btn-outline" style="justify-content: flex-start; text-align: left; padding: var(--space-4);" onclick="ProFinance.lifeEvents.selectOption('split')">
+            <span style="font-size: 1.5rem; margin-right: var(--space-3);">⚖️</span>
+            <div>
+              <div class="font-semibold">Split 50/50</div>
+              <div class="text-muted text-sm">Half to goals, half to lifestyle</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Settings -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Settings</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('settings-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4 class="mb-4">Tax Configuration</h4>
+        <div class="form-group">
+          <label class="form-label">Tax Regime</label>
+          <div class="tabs" style="margin-bottom: 0;">
+            <button class="tab active" data-regime="new">New Regime</button>
+            <button class="tab" data-regime="old">Old Regime</button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Financial Year</label>
+          <select class="form-select" id="settings-fy">
+            <option value="2025-26" selected>2025-26</option>
+            <option value="2024-25">2024-25</option>
+          </select>
+        </div>
+        
+        <h4 class="mb-4 mt-6">Assumptions</h4>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Inflation Rate (%)</label>
+            <input type="number" class="form-input" id="settings-inflation" value="6" step="0.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monte Carlo Iterations</label>
+            <input type="number" class="form-input" id="settings-mc-iterations" value="1000" step="100">
+          </div>
+        </div>
+        
+        <h4 class="mb-4 mt-6">Data Management</h4>
+        <div class="flex gap-3">
+          <button class="btn btn-secondary" onclick="ProFinance.data.exportAll()">📤 Export Data</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">📥 Import Data</button>
+          <input type="file" id="import-file" accept=".json" style="display: none;" onchange="ProFinance.data.importFile(event)">
+          <button class="btn btn-danger" onclick="ProFinance.data.clearAll()">🗑️ Clear All</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="ProFinance.settings.save()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- External Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
+  
+  <!-- Application Scripts -->
+  <script src="js/state/store.js"></script>
+  <script src="js/state/persistence.js"></script>
+  <script src="js/data/models.js"></script>
+  <script src="js/data/validators.js"></script>
+  <script src="js/engines/monte-carlo.js"></script>
+  <script src="js/engines/tax-calculator.js"></script>
+  <script src="js/engines/inflation.js"></script>
+  <script src="js/engines/debt-snowball.js"></script>
+  <script src="js/engines/goal-phases.js"></script>
+  <script src="js/components/navigation.js"></script>
+  <script src="js/components/notifications.js"></script>
+  <script src="js/charts/sankey.js"></script>
+  <script src="js/charts/waterfall.js"></script>
+  <script src="js/charts/projections.js"></script>
+  <script src="js/views/flow-view.js"></script>
+  <script src="js/views/reservoir-view.js"></script>
+  <script src="js/views/family-office.js"></script>
+  <script src="js/views/trade-off.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
