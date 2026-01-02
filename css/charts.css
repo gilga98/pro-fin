@@ -63,7 +63,13 @@
 
 .chart-body {
   height: calc(100% - 60px);
-  min-height: 200px;
+  min-height: 300px;
+}
+
+/* Projection chart specific - ensure proper height */
+#projection-chart {
+  min-height: 380px;
+  height: 400px;
 }
 
 /* Sankey Diagram Specific */

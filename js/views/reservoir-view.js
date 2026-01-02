@@ -109,6 +109,13 @@ const ReservoirView = {
             Target: ${Validators.formatCurrency(targetAmount, true)}
             ${showFutureValue ? '<span class="text-muted">(Future)</span>' : '<span class="text-muted">(Today)</span>'}
           </div>
+          <div class="goal-timeline" style="font-size: var(--font-size-sm); margin-top: var(--space-1);">
+            <span class="text-muted">📅 Target Date:</span> 
+            <span class="font-medium">${new Date(goal.targetDate + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+            <span class="text-muted" style="margin-left: var(--space-2);">
+              (${this.getTimeRemaining(goal.targetDate)})
+            </span>
+          </div>
           
           <div class="goal-progress">
             <div class="goal-progress-bar">
@@ -209,5 +216,27 @@ const ReservoirView = {
         probRing.classList.add('low');
       }
     }
+  },
+
+  /**
+   * Get human-readable time remaining until target date
+   */
+  getTimeRemaining(targetDate) {
+    const target = new Date(targetDate + '-01');
+    const now = new Date();
+    const diffMs = target - now;
+    
+    if (diffMs < 0) return 'Overdue';
+    
+    const months = Math.round(diffMs / (30.44 * 24 * 60 * 60 * 1000));
+    
+    if (months < 1) return 'This month';
+    if (months < 12) return `${months} months left`;
+    
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+    
+    if (remainingMonths === 0) return `${years} year${years > 1 ? 's' : ''} left`;
+    return `${years}y ${remainingMonths}m left`;
   }
 };

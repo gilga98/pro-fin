@@ -78,6 +78,7 @@ const ProjectionChart = {
       },
       yAxis: {
         type: 'value',
+        min: 0,  // Always start from 0 for proper context
         axisLabel: {
           color: '#9ca3af',
           formatter: (value) => {
@@ -153,11 +154,13 @@ const ProjectionChart = {
 
   /**
    * Generate projection data from app state
+   * Accounts for: 
+   * - Post-goal EMI for loan-funded goals
+   * - Fund release after cash-funded goals are achieved
    */
   generateProjections(data) {
-    // Calculate total investments and contributions
+    // Calculate total investments
     let totalCurrentValue = 0;
-    let totalMonthlyContribution = 0;
 
     data.entities?.forEach(entity => {
       entity.assets?.forEach(asset => {
@@ -165,51 +168,125 @@ const ProjectionChart = {
       });
     });
 
-    data.goals?.forEach(goal => {
-      totalMonthlyContribution += goal.monthlyContribution || 0;
-    });
+    // Get all goals sorted by target date
+    const goals = (data.goals || []).map(g => ({
+      ...g,
+      targetDate: new Date(g.targetDate + '-01'),
+      monthsAway: Math.round((new Date(g.targetDate + '-01') - new Date()) / (30.44 * 24 * 60 * 60 * 1000))
+    })).sort((a, b) => a.targetDate - b.targetDate);
 
-    if (totalCurrentValue === 0 && totalMonthlyContribution === 0) {
+    // Calculate base monthly contribution (before any goals complete)
+    let baseMonthlyContribution = goals.reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
+
+    if (totalCurrentValue === 0 && baseMonthlyContribution === 0) {
       return null;
     }
 
-    // Calculate projection for 10 years
+    // Calculate projection for 10 years with timeline events
     const years = 10;
-    const projection = MonteCarlo.generateProjectionData({
-      currentAmount: totalCurrentValue,
-      monthlyContribution: totalMonthlyContribution,
-      expectedReturn: 12,
-      volatility: 15,
-      years,
-      iterations: 100
+    const totalMonths = years * 12;
+    const monthLabels = [];
+    const now = new Date();
+    
+    // Generate month labels
+    for (let m = 0; m <= totalMonths; m += 6) {
+      const date = new Date(now);
+      date.setMonth(now.getMonth() + m);
+      monthLabels.push(date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }));
+    }
+
+    // Build timeline events
+    const events = [];
+    goals.forEach(goal => {
+      // Goal completion event
+      if (goal.monthsAway > 0 && goal.monthsAway <= totalMonths) {
+        events.push({
+          month: goal.monthsAway,
+          type: goal.fundingType === 'loan' ? 'loan_goal_complete' : 'cash_goal_complete',
+          goal: goal,
+          sipRelease: goal.monthlyContribution || 0,
+          emiStart: goal.fundingType === 'loan' ? (goal.projectedEMI || 0) : 0
+        });
+      }
     });
+    
+    // Sort events by month
+    events.sort((a, b) => a.month - b.month);
+
+    // Run simplified projection with timeline adjustments
+    const projectionPoints = monthLabels.length;
+    const p10 = [], p50 = [], p90 = [];
+    
+    let currentValue = totalCurrentValue;
+    let monthlyContrib = baseMonthlyContribution;
+    let monthlyEMI = 0;  // EMI obligations reduce contributions
+    
+    for (let i = 0; i < projectionPoints; i++) {
+      const currentMonth = i * 6;  // months from now
+      
+      // Apply any events that occurred before this point
+      events.forEach(evt => {
+        if (evt.month <= currentMonth && !evt.applied) {
+          if (evt.type === 'loan_goal_complete') {
+            // Loan-funded goal: SIP stops, EMI starts
+            monthlyContrib -= evt.sipRelease;
+            monthlyEMI += evt.emiStart;
+          } else if (evt.type === 'cash_goal_complete') {
+            // Cash-funded goal: SIP releases back to investment pool
+            // (can reinvest if user chooses, for now we keep it as savings rate)
+            monthlyContrib -= evt.sipRelease;
+            // Released funds could boost projections
+            currentValue += evt.sipRelease * 6; // 6 months bonus savings
+          }
+          evt.applied = true;
+        }
+      });
+      
+      // Net contribution = contributions - EMI obligations
+      const netMonthlyContrib = Math.max(0, monthlyContrib - monthlyEMI);
+      
+      // Simple projection with variance bands (6-month step)
+      const monthsOfGrowth = currentMonth;
+      const avgReturn = 0.12 / 12;
+      const vol = 0.15 / Math.sqrt(12);
+      
+      const invested = totalCurrentValue + (netMonthlyContrib * monthsOfGrowth);
+      const growthFactor = Math.pow(1 + avgReturn, monthsOfGrowth);
+      
+      const medianValue = invested * growthFactor;
+      const lowFactor = Math.pow(1 + avgReturn - 1.5 * vol, monthsOfGrowth);
+      const highFactor = Math.pow(1 + avgReturn + 1.5 * vol, monthsOfGrowth);
+      
+      p50.push(Math.round(medianValue));
+      p10.push(Math.round(invested * lowFactor));
+      p90.push(Math.round(invested * highFactor));
+      
+      // Update current value for next iteration
+      currentValue = medianValue;
+    }
 
     // Add goal markers
     const goalMarkers = [];
-    data.goals?.forEach(goal => {
-      const targetDate = new Date(goal.targetDate + '-01');
-      const now = new Date();
-      const monthsAway = Math.round((targetDate - now) / (30.44 * 24 * 60 * 60 * 1000));
-      
+    goals.forEach(goal => {
       // Find the closest label index
       const labelIndex = Math.min(
-        Math.floor(monthsAway / (years * 12 / projection.labels.length)),
-        projection.labels.length - 1
+        Math.floor(goal.monthsAway / 6),
+        monthLabels.length - 1
       );
       
-      if (labelIndex >= 0 && labelIndex < projection.labels.length) {
+      if (labelIndex >= 0 && labelIndex < monthLabels.length) {
         goalMarkers.push({
-          value: [projection.labels[labelIndex], goal.futureValue || goal.targetAmount],
-          name: goal.name
+          value: [monthLabels[labelIndex], goal.futureValue || goal.targetAmount],
+          name: `${goal.name}${goal.fundingType === 'loan' ? ' (Loan)' : ''}`
         });
       }
     });
 
     return {
-      labels: projection.labels,
-      p10: projection.p10,
-      p50: projection.p50,
-      p90: projection.p90,
+      labels: monthLabels,
+      p10,
+      p50,
+      p90,
       goalMarkers
     };
   },

@@ -458,6 +458,10 @@ const Store = {
       loanTenureYears: loanTenureYears,
       projectedEMI: emi,
       
+      // Investment assumptions
+      expectedReturn: parseFloat(goal.expectedReturn) || 12,
+      salaryIncrement: parseFloat(goal.salaryIncrement) || 8,
+      
       achievability: 0,
       createdAt: new Date().toISOString()
     };
@@ -546,15 +550,19 @@ const Store = {
     // Available income for this goal = Income - Expenses - EMIs - Other Goals
     const dispensableIncome = Math.max(0, totalIncome - totalExpenses - totalEMIs - otherGoalsSIP);
     
-    // For Monte Carlo, use the LESSER of required SIP and available income
-    // If user can afford the required SIP, use it; otherwise use what's available
-    const actualContribution = Math.min(goal.monthlyContribution, dispensableIncome);
+    // For Monte Carlo, use the ACTUAL available income
+    // If user can contribute MORE than required, probability increases above 50%
+    // This gives meaningful achievability signals
+    const actualContribution = dispensableIncome;
+    
+    // Get expected return from goal or use default
+    const expectedReturn = goal.expectedReturn || 12;
     
     // Run Monte Carlo with actual contribution ability
     const result = MonteCarlo.simulateGoal({
       currentAmount: current,
       monthlyContribution: actualContribution,
-      expectedReturn: 12,
+      expectedReturn: expectedReturn,
       volatility: 15,
       years: months / 12,
       targetAmount: target,
@@ -566,7 +574,7 @@ const Store = {
     
     // Store the actual contribution for display purposes
     goal.actualContribution = actualContribution;
-    goal.canAffordRequired = actualContribution >= goal.monthlyContribution;
+    goal.canAffordRequired = dispensableIncome >= goal.monthlyContribution;
   },
 
   /**

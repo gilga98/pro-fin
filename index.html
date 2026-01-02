@@ -183,31 +183,6 @@
             </div>
           </div>
         </div>
-        
-        <!-- Waterfall Chart -->
-        <div class="chart-container waterfall-container">
-          <div class="chart-header">
-            <div>
-              <h3 class="chart-title">Monthly Breakdown</h3>
-              <p class="chart-subtitle">Gross to Dispensable waterfall</p>
-            </div>
-            <div class="chart-legend">
-              <div class="chart-legend-item">
-                <div class="chart-legend-color" style="background: var(--accent-primary);"></div>
-                <span>Income</span>
-              </div>
-              <div class="chart-legend-item">
-                <div class="chart-legend-color" style="background: var(--accent-danger);"></div>
-                <span>Outflow</span>
-              </div>
-              <div class="chart-legend-item">
-                <div class="chart-legend-color" style="background: var(--accent-secondary);"></div>
-                <span>Balance</span>
-              </div>
-            </div>
-          </div>
-          <div class="chart-body" id="waterfall-chart"></div>
-        </div>
       </section>
       
       <!-- Wealth & Goals View (formerly Reservoir) -->
@@ -552,6 +527,8 @@
       </div>
       <div class="modal-body">
         <form id="goal-form">
+          <!-- Hidden field for editing existing goals -->
+          <input type="hidden" id="editing-goal-id" name="goalId" value="">
           <div class="form-group">
             <label class="form-label required">Goal Name</label>
             <input type="text" class="form-input" name="name" placeholder="e.g., Dream House, Child's Education" required>
@@ -637,6 +614,23 @@
               <option value="2" selected>🟡 Medium Priority</option>
               <option value="3">🟢 Low Priority</option>
             </select>
+          </div>
+          
+          <!-- Investment Assumptions -->
+          <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4);">
+            <h5 class="mb-3">📈 Investment Assumptions</h5>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Expected Return (%/year)</label>
+                <input type="number" class="form-input" name="expectedReturn" value="12" min="0" max="30" step="0.5">
+                <span class="form-hint">Equity ~12%, Debt ~7%</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Salary Increment (%/year)</label>
+                <input type="number" class="form-input" name="salaryIncrement" value="8" min="0" max="30" step="1">
+                <span class="form-hint">Your expected annual raise</span>
+              </div>
+            </div>
           </div>
           
           <!-- Funding Type Selection -->

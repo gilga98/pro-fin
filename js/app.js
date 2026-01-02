@@ -594,20 +594,32 @@ const ProFinance = {
           return;
         }
 
-        // Add goal
-        const goal = Store.addGoal(data);
+        // Check if we're editing an existing goal
+        const editingGoalId = document.getElementById('editing-goal-id')?.value;
+        let goal;
         
-        // Check achievability and show warning if low
-        if (goal.achievability < 0.5) {
-          Notifications.warning(
-            'Goal Needs Optimization',
-            `${goal.name} has only ${Math.round(goal.achievability * 100)}% probability of success. Consider using the optimizer.`
-          );
+        if (editingGoalId) {
+          // Update existing goal
+          goal = Store.updateGoal(editingGoalId, data);
+          Notifications.success('Goal Updated', `${goal.name} has been updated`);
         } else {
-          Notifications.success('Goal Created', `${goal.name} added to your financial plan`);
+          // Add new goal
+          goal = Store.addGoal(data);
+          
+          // Check achievability and show warning if low
+          if (goal.achievability < 0.5) {
+            Notifications.warning(
+              'Goal Needs Optimization',
+              `${goal.name} has only ${Math.round(goal.achievability * 100)}% probability of success. Consider using the optimizer.`
+            );
+          } else {
+            Notifications.success('Goal Created', `${goal.name} added to your financial plan`);
+          }
         }
 
+        // Reset form and hidden ID
         form.reset();
+        document.getElementById('editing-goal-id').value = '';
         this.ui.closeModal('goal-modal');
         this.refresh();
       },
@@ -615,6 +627,9 @@ const ProFinance = {
       edit: (goalId) => {
         const goal = Store.get('goals')?.find(g => g.id === goalId);
         if (!goal) return;
+
+        // Set the editing goal ID
+        document.getElementById('editing-goal-id').value = goalId;
 
         // Populate form
         const form = document.getElementById('goal-form');
@@ -624,6 +639,29 @@ const ProFinance = {
         form.querySelector('input[name="targetAmount"]').value = goal.targetAmount;
         form.querySelector('input[name="targetDate"]').value = goal.targetDate;
         form.querySelector('select[name="priority"]').value = goal.priority;
+        
+        // Populate investment assumptions
+        const expectedReturnInput = form.querySelector('input[name="expectedReturn"]');
+        if (expectedReturnInput) expectedReturnInput.value = goal.expectedReturn || 12;
+        
+        const salaryIncrementInput = form.querySelector('input[name="salaryIncrement"]');
+        if (salaryIncrementInput) salaryIncrementInput.value = goal.salaryIncrement || 8;
+
+        // Set funding type
+        if (goal.fundingType === 'loan') {
+          form.querySelector('input[name="fundingType"][value="loan"]').checked = true;
+          ProFinance.ui.toggleLoanFields(true);
+          // Populate loan fields
+          const downpaymentInput = form.querySelector('input[name="downpaymentPercent"]');
+          if (downpaymentInput) downpaymentInput.value = goal.downpaymentPercent || 20;
+          const interestInput = form.querySelector('input[name="loanInterestRate"]');
+          if (interestInput) interestInput.value = goal.loanInterestRate || 8.5;
+          const tenureInput = form.querySelector('input[name="loanTenureYears"]');
+          if (tenureInput) tenureInput.value = goal.loanTenureYears || 20;
+        } else {
+          form.querySelector('input[name="fundingType"][value="cash"]').checked = true;
+          ProFinance.ui.toggleLoanFields(false);
+        }
 
         // Set goal type
         const goalTypeCards = form.querySelectorAll('.asset-type-card');
@@ -632,7 +670,8 @@ const ProFinance = {
         });
         form.querySelector('input[name="goalType"]').value = goal.type;
 
-        // Show modal
+        // Show modal with updated title for editing
+        document.querySelector('#goal-modal .modal-title').textContent = '✏️ Edit Goal';
         this.ui.showModal('goal-modal');
       },
 
