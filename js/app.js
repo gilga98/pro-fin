@@ -186,6 +186,88 @@ const ProFinance = {
         document.getElementById('loan-downpayment-preview').textContent = Validators.formatCurrency(downpaymentAmount, true);
         document.getElementById('loan-amount-preview').textContent = Validators.formatCurrency(loanAmount, true);
         document.getElementById('loan-emi-preview').textContent = Validators.formatCurrency(emi);
+      },
+
+      // Track current manage tab type
+      currentManageType: 'income',
+
+      showManageDataModal: (type = 'income') => {
+        ProFinance.ui.currentManageType = type;
+        ProFinance.ui.switchManageTab(type);
+        ProFinance.ui.showModal('manage-data-modal');
+      },
+
+      switchManageTab: (type) => {
+        ProFinance.ui.currentManageType = type;
+        
+        // Update tab active state
+        document.querySelectorAll('#manage-data-tabs .tab').forEach(tab => {
+          tab.classList.toggle('active', tab.dataset.manageType === type);
+        });
+        
+        // Render the list for this type
+        ProFinance.ui.renderManageList(type);
+      },
+
+      renderManageList: (type) => {
+        const listContainer = document.getElementById('manage-data-list');
+        const emptyState = document.getElementById('manage-data-empty');
+        const entity = FamilyOffice.getActiveEntity();
+        
+        if (!entity) {
+          emptyState.style.display = 'block';
+          listContainer.innerHTML = '';
+          return;
+        }
+
+        let items = [];
+        let labelField = 'name';
+        let amountField = 'amount';
+        let typeField = 'type';
+        
+        switch (type) {
+          case 'income':
+            items = entity.incomeStreams || [];
+            typeField = 'type';
+            break;
+          case 'expense':
+            items = entity.expenses || [];
+            typeField = 'category';
+            break;
+          case 'asset':
+            items = entity.assets || [];
+            amountField = 'currentValue';
+            typeField = 'assetType';
+            break;
+          case 'liability':
+            items = entity.liabilities || [];
+            amountField = 'principal';
+            typeField = 'loanType';
+            break;
+        }
+
+        if (items.length === 0) {
+          emptyState.style.display = 'block';
+          listContainer.innerHTML = '';
+          return;
+        }
+
+        emptyState.style.display = 'none';
+        listContainer.innerHTML = items.map(item => `
+          <div class="data-item flex justify-between items-center p-3 mb-2" 
+               style="background: var(--bg-tertiary); border-radius: var(--radius-lg);">
+            <div style="flex: 1; min-width: 0;">
+              <div class="font-semibold" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item[labelField]}</div>
+              <div class="text-sm text-muted">${item[typeField] || 'Other'}</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="font-semibold" style="white-space: nowrap;">${Validators.formatCurrency(item[amountField] || 0)}</span>
+              <button class="btn btn-sm btn-secondary" onclick="ProFinance.data.editItem('${type}', '${item.id}')">✏️</button>
+              <button class="btn btn-sm btn-outline" style="color: var(--accent-danger); border-color: var(--accent-danger);" 
+                      onclick="ProFinance.data.deleteItem('${type}', '${item.id}')">🗑️</button>
+            </div>
+          </div>
+        `).join('');
       }
     };
 
@@ -242,13 +324,27 @@ const ProFinance = {
               break;
 
             case 'expense':
-              validation = Validators.validateExpense(data);
-              if (!validation.valid) {
-                Notifications.error('Validation Error', validation.errors[0]);
+              // First save the main form if filled
+              if (data.name && data.amount) {
+                validation = Validators.validateExpense(data);
+                if (!validation.valid) {
+                  Notifications.error('Validation Error', validation.errors[0]);
+                  return;
+                }
+                Store.addExpense(entityId, data);
+              }
+              
+              // Also save quick expense rows
+              const quickCount = ProFinance.data.saveQuickExpenses(entityId);
+              
+              if (data.name && data.amount) {
+                Notifications.success('Expenses Added', `${data.name}${quickCount > 0 ? ` + ${quickCount} more` : ''} added successfully`);
+              } else if (quickCount > 0) {
+                Notifications.success('Expenses Added', `${quickCount} expense(s) added successfully`);
+              } else {
+                Notifications.error('No Data', 'Please enter at least one expense');
                 return;
               }
-              Store.addExpense(entityId, data);
-              Notifications.success('Expense Added', `${data.name} added successfully`);
               break;
 
             case 'asset':
@@ -315,6 +411,153 @@ const ProFinance = {
           Store.reset();
           Notifications.info('Data Cleared', 'All data has been reset');
           this.refresh();
+        }
+      },
+
+      addQuickExpenseRow: () => {
+        const list = document.getElementById('quick-expense-list');
+        if (!list) return;
+        
+        const rowId = `quick-exp-${Date.now()}`;
+        const row = document.createElement('div');
+        row.className = 'quick-expense-row flex gap-2 mb-2 items-center';
+        row.id = rowId;
+        row.innerHTML = `
+          <input type="text" class="form-input" placeholder="Name" style="flex: 2;" data-field="name">
+          <div class="form-input-wrapper" style="flex: 1;">
+            <span class="form-input-prefix">₹</span>
+            <input type="number" class="form-input currency" placeholder="0" data-field="amount">
+          </div>
+          <select class="form-select" style="flex: 1;" data-field="category">
+            <option value="housing">Housing</option>
+            <option value="utilities">Utilities</option>
+            <option value="transport">Transport</option>
+            <option value="groceries">Groceries</option>
+            <option value="insurance">Insurance</option>
+            <option value="education">Education</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="lifestyle">Lifestyle</option>
+            <option value="other">Other</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline" style="color: var(--accent-danger);" onclick="this.parentElement.remove()">✕</button>
+        `;
+        list.appendChild(row);
+      },
+
+      saveQuickExpenses: (entityId) => {
+        const list = document.getElementById('quick-expense-list');
+        if (!list) return 0;
+        
+        const rows = list.querySelectorAll('.quick-expense-row');
+        let savedCount = 0;
+        
+        rows.forEach(row => {
+          const name = row.querySelector('[data-field="name"]')?.value?.trim();
+          const amount = row.querySelector('[data-field="amount"]')?.value;
+          const category = row.querySelector('[data-field="category"]')?.value || 'other';
+          
+          if (name && amount && parseFloat(amount) > 0) {
+            Store.addExpense(entityId, {
+              name,
+              amount: parseFloat(amount),
+              category,
+              expenseType: 'fixed'
+            });
+            savedCount++;
+          }
+        });
+        
+        // Clear the quick expense list
+        list.innerHTML = '';
+        
+        return savedCount;
+      },
+
+      editItem: (type, itemId) => {
+        const entityId = FamilyOffice.activeEntity || 'user';
+        const entity = Store.getEntity(entityId);
+        if (!entity) return;
+
+        let item, items;
+        switch (type) {
+          case 'income':
+            items = entity.incomeStreams;
+            break;
+          case 'expense':
+            items = entity.expenses;
+            break;
+          case 'asset':
+            items = entity.assets;
+            break;
+          case 'liability':
+            items = entity.liabilities;
+            break;
+        }
+
+        item = items?.find(i => i.id === itemId);
+        if (!item) return;
+
+        // Simple edit dialog - prompt for new amount
+        const newName = prompt('Edit name:', item.name);
+        if (newName === null) return; // Cancelled
+
+        const amountField = type === 'asset' ? 'currentValue' : (type === 'liability' ? 'principal' : 'amount');
+        const newAmount = prompt('Edit amount:', item[amountField]);
+        if (newAmount === null) return; // Cancelled
+
+        try {
+          const updates = { name: newName };
+          updates[amountField] = parseFloat(newAmount);
+
+          switch (type) {
+            case 'income':
+              Store.updateIncome(entityId, itemId, updates);
+              break;
+            case 'expense':
+              Store.updateExpense(entityId, itemId, updates);
+              break;
+            case 'asset':
+              Store.updateAsset(entityId, itemId, updates);
+              break;
+            case 'liability':
+              Store.updateLiability(entityId, itemId, updates);
+              break;
+          }
+
+          Notifications.success('Updated', `${newName} has been updated`);
+          ProFinance.ui.renderManageList(type);
+          ProFinance.refresh();
+        } catch (error) {
+          Notifications.error('Error', error.message);
+        }
+      },
+
+      deleteItem: (type, itemId) => {
+        if (!confirm('Are you sure you want to delete this item?')) return;
+
+        const entityId = FamilyOffice.activeEntity || 'user';
+
+        try {
+          switch (type) {
+            case 'income':
+              Store.deleteIncome(entityId, itemId);
+              break;
+            case 'expense':
+              Store.deleteExpense(entityId, itemId);
+              break;
+            case 'asset':
+              Store.deleteAsset(entityId, itemId);
+              break;
+            case 'liability':
+              Store.deleteLiability(entityId, itemId);
+              break;
+          }
+
+          Notifications.success('Deleted', 'Item has been removed');
+          ProFinance.ui.renderManageList(type);
+          ProFinance.refresh();
+        } catch (error) {
+          Notifications.error('Error', error.message);
         }
       }
     };

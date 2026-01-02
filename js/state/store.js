@@ -529,10 +529,31 @@ const Store = {
       );
     }
     
-    // Run Monte Carlo to get achievability
+    // Calculate ACTUAL available monthly savings for simulation
+    // This is what the user can actually invest, not what's required
+    const totalIncome = this.calculateTotalMonthlyIncome();
+    const totalExpenses = this.calculateTotalMonthlyExpenses();
+    
+    // Get total EMIs from liabilities
+    const totalEMIs = this.state.entities.reduce((sum, entity) => 
+      sum + entity.liabilities.reduce((emiSum, l) => emiSum + (l.emi || 0), 0), 0);
+    
+    // Get SIPs already allocated to other goals
+    const otherGoalsSIP = this.state.goals
+      .filter(g => g.id !== goal.id)
+      .reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
+    
+    // Available income for this goal = Income - Expenses - EMIs - Other Goals
+    const dispensableIncome = Math.max(0, totalIncome - totalExpenses - totalEMIs - otherGoalsSIP);
+    
+    // For Monte Carlo, use the LESSER of required SIP and available income
+    // If user can afford the required SIP, use it; otherwise use what's available
+    const actualContribution = Math.min(goal.monthlyContribution, dispensableIncome);
+    
+    // Run Monte Carlo with actual contribution ability
     const result = MonteCarlo.simulateGoal({
       currentAmount: current,
-      monthlyContribution: goal.monthlyContribution,
+      monthlyContribution: actualContribution,
       expectedReturn: 12,
       volatility: 15,
       years: months / 12,
@@ -542,6 +563,10 @@ const Store = {
     
     goal.achievability = result.probability;
     goal.percentiles = result.percentiles;
+    
+    // Store the actual contribution for display purposes
+    goal.actualContribution = actualContribution;
+    goal.canAffordRequired = actualContribution >= goal.monthlyContribution;
   },
 
   /**

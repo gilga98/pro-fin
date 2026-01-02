@@ -293,29 +293,50 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* Grid Layouts */
+/* Grid Layouts - Using Flexbox for better responsiveness */
 .grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-6);
+}
+
+.grid-2 > * {
+  flex: 1 1 280px;
+  min-width: 0;
 }
 
 .grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-6);
+}
+
+.grid-3 > * {
+  flex: 1 1 280px;
+  min-width: 280px;
+  max-width: 100%;
 }
 
 .grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.grid-4 > * {
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .grid-auto {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-6);
+}
+
+.grid-auto > * {
+  flex: 1 1 280px;
+  min-width: 280px;
 }
 
 /* Flex Utilities */
@@ -356,10 +377,6 @@
   .app-sidebar {
     display: none;
   }
-  
-  .grid-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 @media (max-width: 768px) {
@@ -375,12 +392,18 @@
     justify-content: center;
   }
   
-  .app-main {
-    padding: var(--space-4);
+  .header-actions {
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
   
-  .grid-2, .grid-3, .grid-4 {
-    grid-template-columns: 1fr;
+  .header-actions .btn {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+  
+  .app-main {
+    padding: var(--space-4);
   }
   
   .dashboard-header {
@@ -391,6 +414,17 @@
   .dashboard-date {
     text-align: left;
   }
+  
+  /* Stat cards stack vertically on mobile */
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+  
+  .stat-icon {
+    margin-bottom: var(--space-2);
+  }
 }
 
 @media (max-width: 480px) {
@@ -400,5 +434,14 @@
   
   .view-tab {
     padding: var(--space-2) var(--space-3);
+  }
+  
+  .dashboard-title {
+    font-size: var(--font-size-2xl);
+  }
+  
+  /* Smaller gaps on mobile */
+  .grid-2, .grid-3, .grid-4, .grid-auto {
+    gap: var(--space-3);
   }
 }

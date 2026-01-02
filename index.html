@@ -37,7 +37,7 @@
         </button>
         <button class="view-tab reservoir" data-view="reservoir">
           <span class="view-tab-icon">🏦</span>
-          <span>The Reservoir</span>
+          <span>Wealth & Goals</span>
         </button>
       </div>
       
@@ -49,6 +49,9 @@
         </button>
         <button class="btn btn-secondary" id="settings-btn">
           ⚙️ Settings
+        </button>
+        <button class="btn btn-secondary" id="manage-data-btn" onclick="ProFinance.ui.showManageDataModal()">
+          📋 Manage
         </button>
         <button class="btn btn-primary" id="add-data-btn">
           ➕ Add Data
@@ -207,11 +210,11 @@
         </div>
       </section>
       
-      <!-- Reservoir View -->
+      <!-- Wealth & Goals View (formerly Reservoir) -->
       <section class="view-container" id="reservoir-view">
         <div class="dashboard-header">
           <div>
-            <h1 class="dashboard-title">The Reservoir <span class="text-gradient-purple">🏦</span></h1>
+            <h1 class="dashboard-title">Wealth & Goals <span class="text-gradient-purple">🏦</span></h1>
             <p class="dashboard-subtitle">Future wealth projections and goal tracking</p>
           </div>
           <div class="flex gap-4">
@@ -436,6 +439,18 @@
                   <span>Variable Expense</span>
                 </label>
               </div>
+            </div>
+            
+            <!-- Quick Add Multiple Expenses -->
+            <div class="mt-6" style="border-top: 1px solid var(--bg-tertiary); padding-top: var(--space-4);">
+              <h5 class="mb-3" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>⚡ Quick Add Multiple</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="ProFinance.data.addQuickExpenseRow()">+ Add Row</button>
+              </h5>
+              <div id="quick-expense-list">
+                <!-- Quick expense rows will be added here -->
+              </div>
+              <div class="text-xs text-muted mt-2">Fill in the rows above and click Save to add all at once.</div>
             </div>
           </form>
           
@@ -872,6 +887,35 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="ProFinance.settings.save()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Manage Data -->
+  <div class="modal-overlay" id="manage-data-modal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📋 Manage Financial Data</h3>
+        <button class="modal-close" onclick="ProFinance.ui.closeModal('manage-data-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tabs mb-6" id="manage-data-tabs">
+          <button class="tab active" data-manage-type="income" onclick="ProFinance.ui.switchManageTab('income')">💰 Income</button>
+          <button class="tab" data-manage-type="expense" onclick="ProFinance.ui.switchManageTab('expense')">💸 Expenses</button>
+          <button class="tab" data-manage-type="asset" onclick="ProFinance.ui.switchManageTab('asset')">📊 Assets</button>
+          <button class="tab" data-manage-type="liability" onclick="ProFinance.ui.switchManageTab('liability')">📋 Liabilities</button>
+        </div>
+        <div id="manage-data-list" style="max-height: 400px; overflow-y: auto;">
+          <!-- Data list will be dynamically populated -->
+        </div>
+        <div class="empty-state" id="manage-data-empty" style="display: none;">
+          <div style="font-size: 2rem; margin-bottom: var(--space-2);">📭</div>
+          <p class="text-muted">No items yet. Click "Add Data" to get started.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="ProFinance.ui.closeModal('manage-data-modal')">Close</button>
+        <button class="btn btn-primary" onclick="ProFinance.ui.showAddDataModal(ProFinance.ui.currentManageType || 'income')">➕ Add New</button>
       </div>
     </div>
   </div>
