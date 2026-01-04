@@ -54,6 +54,120 @@ const ProjectionChart = {
       return;
     }
 
+    // Build series based on whether Monte Carlo is used
+    const series = [];
+    
+    if (projectionData.usesMonteCarlo) {
+      // Monte Carlo mode: show confidence bands
+      series.push(
+        // Confidence band (shaded area between p10 and p90)
+        {
+          name: '80% Confidence Band',
+          type: 'line',
+          data: projectionData.p90,
+          lineStyle: { width: 0, color: 'transparent' },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(16, 185, 129, 0.15)' },
+                { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
+              ]
+            }
+          },
+          stack: 'confidence',
+          symbol: 'none',
+          silent: true
+        },
+        {
+          name: 'Lower Bound',
+          type: 'line',
+          data: projectionData.p10,
+          lineStyle: { width: 0, color: 'transparent' },
+          areaStyle: {
+            color: '#1f2937'
+          },
+          stack: 'confidence',
+          symbol: 'none',
+          silent: true
+        },
+        // Median projection line
+        {
+          name: 'Expected Wealth (Median)',
+          type: 'line',
+          data: projectionData.projected,
+          smooth: true,
+          lineStyle: { width: 3, color: '#10b981' },
+          itemStyle: { color: '#10b981' },
+          symbol: 'circle',
+          symbolSize: 6,
+          showSymbol: false,
+          z: 10
+        },
+        // Dashed lines for p10 and p90
+        {
+          name: 'Best Case (90th %ile)',
+          type: 'line',
+          data: projectionData.p90,
+          lineStyle: { width: 1, type: 'dashed', color: '#34d399' },
+          itemStyle: { color: '#34d399' },
+          symbol: 'none',
+          z: 5
+        },
+        {
+          name: 'Worst Case (10th %ile)',
+          type: 'line',
+          data: projectionData.p10,
+          lineStyle: { width: 1, type: 'dashed', color: '#6ee7b7' },
+          itemStyle: { color: '#6ee7b7' },
+          symbol: 'none',
+          z: 5
+        }
+      );
+    } else {
+      // Deterministic mode: single line
+      series.push({
+        name: 'Projected Wealth',
+        type: 'line',
+        data: projectionData.projected,
+        smooth: true,
+        lineStyle: { width: 3, color: '#10b981' },
+        itemStyle: { color: '#10b981' },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
+              { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
+            ]
+          }
+        },
+        symbol: 'circle',
+        symbolSize: 6,
+        showSymbol: false
+      });
+    }
+    
+    // Add goal markers
+    series.push({
+      name: 'Goal Targets',
+      type: 'scatter',
+      data: projectionData.goalMarkers,
+      symbol: 'pin',
+      symbolSize: 40,
+      itemStyle: { color: '#f59e0b' },
+      label: {
+        show: true,
+        position: 'top',
+        color: '#f59e0b',
+        fontSize: 10,
+        formatter: (params) => params.data.name
+      },
+      z: 15
+    });
+
     const option = {
       backgroundColor: 'transparent',
       tooltip: {
@@ -61,7 +175,7 @@ const ProjectionChart = {
         formatter: (params) => {
           let html = `<strong>${params[0].axisValue}</strong><br/>`;
           params.forEach(p => {
-            if (p.value !== undefined) {
+            if (p.value !== undefined && p.seriesName !== 'Lower Bound' && p.seriesName !== '80% Confidence Band') {
               html += `${p.marker} ${p.seriesName}: ₹${(p.value / 100000).toFixed(1)}L<br/>`;
             }
           });
@@ -69,7 +183,9 @@ const ProjectionChart = {
         }
       },
       legend: {
-        data: ['Projected Wealth', 'Goal Targets'],
+        data: projectionData.usesMonteCarlo 
+          ? ['Expected Wealth (Median)', 'Best Case (90th %ile)', 'Worst Case (10th %ile)', 'Goal Targets']
+          : ['Projected Wealth', 'Goal Targets'],
         textStyle: { color: '#9ca3af' },
         bottom: 10
       },
@@ -93,7 +209,7 @@ const ProjectionChart = {
       },
       yAxis: {
         type: 'value',
-        min: 0,  // Always start from 0 for proper context
+        min: 0,
         axisLabel: {
           color: '#9ca3af',
           formatter: (value) => {
@@ -104,44 +220,7 @@ const ProjectionChart = {
         },
         splitLine: { lineStyle: { color: 'rgba(75, 85, 99, 0.3)' } }
       },
-      series: [
-        {
-          name: 'Projected Wealth',
-          type: 'line',
-          data: projectionData.projected,
-          smooth: true,
-          lineStyle: { width: 3, color: '#10b981' },
-          itemStyle: { color: '#10b981' },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
-                { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
-              ]
-            }
-          },
-          symbol: 'circle',
-          symbolSize: 6,
-          showSymbol: false
-        },
-        {
-          name: 'Goal Targets',
-          type: 'scatter',
-          data: projectionData.goalMarkers,
-          symbol: 'pin',
-          symbolSize: 40,
-          itemStyle: { color: '#f59e0b' },
-          label: {
-            show: true,
-            position: 'top',
-            color: '#f59e0b',
-            fontSize: 10,
-            formatter: (params) => params.data.name
-          }
-        }
-      ]
+      series: series
     };
 
     this.chart.setOption(option);
@@ -149,6 +228,7 @@ const ProjectionChart = {
 
   /**
    * Generate projection data from app state
+   * Uses Monte Carlo simulations for confidence bands
    * Accounts for: 
    * - Post-goal EMI for loan-funded goals
    * - Fund release after cash-funded goals are achieved
@@ -183,7 +263,7 @@ const ProjectionChart = {
     const monthLabels = [];
     const now = new Date();
     
-    // Generate month labels
+    // Generate month labels (every 6 months)
     for (let m = 0; m <= totalMonths; m += 6) {
       const date = new Date(now);
       date.setMonth(now.getMonth() + m);
@@ -208,56 +288,119 @@ const ProjectionChart = {
     // Sort events by month
     events.sort((a, b) => a.month - b.month);
 
-    // Run simplified linear projection with timeline adjustments
+    // Get expected return and volatility from configuration
+    const expectedReturn = (data.configuration?.expectedReturn || 10);
+    const monteCarloEnabled = data.configuration?.monteCarlo?.enabled !== false && typeof MonteCarlo !== 'undefined';
+    
+    // Get average volatility from portfolio
+    let portfolioVolatility = 15; // Default
+    if (goals.length > 0) {
+      const volatilities = goals.map(g => g.monteCarloResults?.volatility || 15);
+      portfolioVolatility = volatilities.reduce((sum, v) => sum + v, 0) / volatilities.length;
+    }
+
     const projectionPoints = monthLabels.length;
     const projected = [];
+    const p10Data = [];
+    const p90Data = [];
     
-    // Get expected return from configuration or use default 10%
-    const expectedReturn = (data.configuration?.expectedReturn || 10) / 100;
-    const monthlyReturn = expectedReturn / 12;
-    
-    let currentValue = totalCurrentValue;
-    let monthlyContrib = baseMonthlyContribution;
-    let monthlyEMI = 0;  // EMI obligations reduce contributions
-    
-    for (let i = 0; i < projectionPoints; i++) {
-      const currentMonth = i * 6;  // months from now
+    // If Monte Carlo is enabled, generate confidence bands
+    if (monteCarloEnabled) {
+      let currentValue = totalCurrentValue;
+      let monthlyContrib = baseMonthlyContribution;
+      let monthlyEMI = 0;
       
-      // Apply any events that occurred before this point
-      events.forEach(evt => {
-        if (evt.month <= currentMonth && !evt.applied) {
-          if (evt.type === 'loan_goal_complete') {
-            // Loan-funded goal: SIP stops, EMI starts
-            monthlyContrib -= evt.sipRelease;
-            monthlyEMI += evt.emiStart;
-          } else if (evt.type === 'cash_goal_complete') {
-            // Cash-funded goal: SIP releases back
-            monthlyContrib -= evt.sipRelease;
-            currentValue += evt.sipRelease * 6; // 6 months bonus savings
+      for (let i = 0; i < projectionPoints; i++) {
+        const currentMonth = i * 6;
+        
+        // Apply events
+        events.forEach(evt => {
+          if (evt.month <= currentMonth && !evt.applied) {
+            if (evt.type === 'loan_goal_complete') {
+              monthlyContrib -= evt.sipRelease;
+              monthlyEMI += evt.emiStart;
+            } else if (evt.type === 'cash_goal_complete') {
+              monthlyContrib -= evt.sipRelease;
+              currentValue += evt.sipRelease * 6;
+            }
+            evt.applied = true;
           }
-          evt.applied = true;
+        });
+        
+        const netMonthlyContrib = Math.max(0, monthlyContrib - monthlyEMI);
+        
+        // Run Monte Carlo simulation for this time point
+        try {
+          const mcResults = MonteCarlo.simulateGoal({
+            currentAmount: totalCurrentValue,
+            monthlyContribution: netMonthlyContrib,
+            expectedReturn: expectedReturn,
+            volatility: portfolioVolatility,
+            years: currentMonth / 12,
+            targetAmount: 0, // Not checking target, just projecting
+            iterations: 200 // Lighter for multiple data points
+          });
+          
+          projected.push(mcResults.percentiles.p50);
+          p10Data.push(mcResults.percentiles.p10);
+          p90Data.push(mcResults.percentiles.p90);
+          
+        } catch (error) {
+          // Fallback to deterministic
+          const monthlyReturn = expectedReturn / 100 / 12;
+          const monthsOfGrowth = currentMonth;
+          const invested = totalCurrentValue + (netMonthlyContrib * monthsOfGrowth);
+          const growthFactor = Math.pow(1 + monthlyReturn, monthsOfGrowth);
+          const value = Math.round(invested * growthFactor);
+          
+          projected.push(value);
+          p10Data.push(Math.round(value * 0.8)); // Approximate
+          p90Data.push(Math.round(value * 1.2));
         }
-      });
+        
+        currentValue = projected[projected.length - 1];
+      }
+    } else {
+      // Deterministic projection (original logic)
+      let currentValue = totalCurrentValue;
+      let monthlyContrib = baseMonthlyContribution;
+      let monthlyEMI = 0;
+      const monthlyReturn = expectedReturn / 100 / 12;
       
-      // Net contribution = contributions - EMI obligations
-      const netMonthlyContrib = Math.max(0, monthlyContrib - monthlyEMI);
-      
-      // Simple compound growth projection
-      const monthsOfGrowth = currentMonth;
-      const invested = totalCurrentValue + (netMonthlyContrib * monthsOfGrowth);
-      const growthFactor = Math.pow(1 + monthlyReturn, monthsOfGrowth);
-      
-      const projectedValue = invested * growthFactor;
-      projected.push(Math.round(projectedValue));
-      
-      // Update current value for next iteration
-      currentValue = projectedValue;
+      for (let i = 0; i < projectionPoints; i++) {
+        const currentMonth = i * 6;
+        
+        // Apply events
+        events.forEach(evt => {
+          if (evt.month <= currentMonth && !evt.applied) {
+            if (evt.type === 'loan_goal_complete') {
+              monthlyContrib -= evt.sipRelease;
+              monthlyEMI += evt.emiStart;
+            } else if (evt.type === 'cash_goal_complete') {
+              monthlyContrib -= evt.sipRelease;
+              currentValue += evt.sipRelease * 6;
+            }
+            evt.applied = true;
+          }
+        });
+        
+        const netMonthlyContrib = Math.max(0, monthlyContrib - monthlyEMI);
+        const monthsOfGrowth = currentMonth;
+        const invested = totalCurrentValue + (netMonthlyContrib * monthsOfGrowth);
+        const growthFactor = Math.pow(1 + monthlyReturn, monthsOfGrowth);
+        const projectedValue = Math.round(invested * growthFactor);
+        
+        projected.push(projectedValue);
+        p10Data.push(projectedValue); // No variation in deterministic mode
+        p90Data.push(projectedValue);
+        
+        currentValue = projectedValue;
+      }
     }
 
     // Add goal markers
     const goalMarkers = [];
     goals.forEach(goal => {
-      // Find the closest label index
       const labelIndex = Math.min(
         Math.floor(goal.monthsAway / 6),
         monthLabels.length - 1
@@ -274,7 +417,10 @@ const ProjectionChart = {
     return {
       labels: monthLabels,
       projected,
-      goalMarkers
+      p10: p10Data,
+      p90: p90Data,
+      goalMarkers,
+      usesMonteCarlo: monteCarloEnabled
     };
   },
 

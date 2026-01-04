@@ -69,6 +69,7 @@ const ReservoirView = {
       const progress = goal.currentValue / targetAmount * 100;
       const achievability = goal.achievability || 0;
       const isLoanFunded = goal.fundingType === 'loan';
+      const hasMonteCarlo = goal.monteCarloResults != null;
       
       // For loan-funded goals, show downpayment as the SIP target
       const sipLabel = isLoanFunded ? 'Save for Downpayment:' : 'Monthly SIP:';
@@ -83,6 +84,35 @@ const ReservoirView = {
       } else if (achievability < 0.75) {
         achievabilityClass = 'yellow';
         achievabilityText = 'Needs Attention';
+      }
+      
+      // Prepare Monte Carlo display if available
+      let monteCarloHTML = '';
+      if (hasMonteCarlo) {
+        const mc = goal.monteCarloResults;
+        monteCarloHTML = `
+          <div class="card mt-2" style="background: rgba(16, 185, 129, 0.05); padding: var(--space-2); font-size: var(--font-size-xs);">
+            <div style="font-weight: 600; margin-bottom: var(--space-1); color: var(--text-secondary);">
+              📊 Projected Outcome Range
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted">Worst Case (10%):</span>
+              <span>${Validators.formatCurrency(mc.percentiles.p10, true)}</span>
+            </div>
+            <div class="flex justify-between mt-1">
+              <span class="text-muted">Expected (Median):</span>
+              <span class="font-semibold">${Validators.formatCurrency(mc.percentiles.p50, true)}</span>
+            </div>
+            <div class="flex justify-between mt-1">
+              <span class="text-muted">Best Case (90%):</span>
+              <span>${Validators.formatCurrency(mc.percentiles.p90, true)}</span>
+            </div>
+            <div class="mt-2" style="font-size: 10px; color: var(--text-muted);">
+              Based on ${hasMonteCarlo ? '1000+ simulations' : 'deterministic calculation'} • 
+              ${Math.round(achievability * 100)}% probability of success
+            </div>
+          </div>
+        `;
       }
 
       return `
@@ -142,6 +172,8 @@ const ReservoirView = {
               </div>
             </div>
           </div>
+          
+          ${monteCarloHTML}
           
           ${isLoanFunded ? `
           <div class="card mt-3" style="background: rgba(245, 158, 11, 0.1); padding: var(--space-2); font-size: var(--font-size-xs);">

@@ -125,30 +125,70 @@ const TradeOff = {
     const originalTargetAmount = this.currentGoal.futureValue || this.currentGoal.targetAmount;
     const targetAmount = Math.round(originalTargetAmount * (1 - reducePercent / 100));
 
-    // Projected Future Value (Deterministic)
-    // FV = P(1+r)^t + SIP * (((1+r)^n - 1) / r) * (1+r)
-    const r = riskLevel / 100 / 12; // Monthly rate
-    const n = totalMonths;
-
-    let projectedFV = 0;
-    if (totalMonths > 0) {
-        const fvLumpSum = currentAmount * Math.pow(1 + r, n);
-        const fvSIP = monthlyContribution * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
-        projectedFV = Math.round(fvLumpSum + fvSIP);
-    } else {
-        projectedFV = currentAmount;
+    // Get volatility from investment allocation
+    let volatility = 15;
+    if (typeof InvestmentAllocator !== 'undefined') {
+      const allocation = InvestmentAllocator.getAllocation();
+      const equityPercent = allocation
+        .filter(a => a.sector === 'equity')
+        .reduce((sum, a) => sum + a.percent, 0);
+      volatility = 5 + (equityPercent / 100) * 13;
     }
 
-    // Calculate Goal Coverage (formerly Achievability Score)
-    const score = targetAmount > 0 ? projectedFV / targetAmount : 1; // Raw ratio
-    const displayScore = Math.min(score, 1.0); // Cap at 1.0 for ring fill
-    
-    // Text shows percentage (e.g. 120%)
-    const coveragePercent = Math.round(score * 100);
+    // USE MONTE CARLO SIMULATION for real-time feedback
+    const monteCarloEnabled = typeof MonteCarlo !== 'undefined';
+    let score = 0;
+    let coveragePercent = 0;
 
-    // Update display text
+    if (monteCarloEnabled) {
+      try {
+        // Use quick iterations for responsive slider updates
+        const quickIterations = Store.get('configuration.monteCarlo.quickIterations') || 500;
+        
+        const mcResults = MonteCarlo.simulateGoal({
+          currentAmount: currentAmount,
+          monthlyContribution: monthlyContribution,
+          expectedReturn: riskLevel,
+          volatility: volatility,
+          years: years,
+          targetAmount: targetAmount,
+          iterations: quickIterations
+        });
+        
+        // Probability of success from Monte Carlo
+        score = mcResults.probability;
+        coveragePercent = Math.round(score * 100);
+        
+      } catch (error) {
+        console.warn('Monte Carlo failed in trade-off, using deterministic:', error);
+        // Fallback to deterministic
+        const projectedFV = this.calculateDeterministicProjection(
+          currentAmount, monthlyContribution, riskLevel, totalMonths
+        );
+        score = targetAmount > 0 ? projectedFV / targetAmount : 1;
+        coveragePercent = Math.round(score * 100);
+      }
+    } else {
+      // Deterministic fallback
+      const projectedFV = this.calculateDeterministicProjection(
+        currentAmount, monthlyContribution, riskLevel, totalMonths
+      );
+      score = targetAmount > 0 ? projectedFV / targetAmount : 1;
+      coveragePercent = Math.round(score * 100);
+    }
+
+    // Cap display score at 1.0 for ring visualization
+    const displayScore = Math.min(score, 1.0);
+
+    // Update display text (show actual percentage, can exceed 100%)
     const probEl = document.getElementById('tradeoff-new-prob');
-    if (probEl) probEl.textContent = `${coveragePercent}%`;
+    if (probEl) {
+      if (monteCarloEnabled) {
+        probEl.textContent = `${coveragePercent}%`;
+      } else {
+        probEl.textContent = `${coveragePercent}%`;
+      }
+    }
 
     // Update ring
     const ring = document.getElementById('tradeoff-prob-ring');
@@ -165,6 +205,20 @@ const TradeOff = {
         ring.classList.add('low');
       }
     }
+  },
+
+  /**
+   * Deterministic projection calculation (fallback)
+   */
+  calculateDeterministicProjection(currentAmount, monthlyContribution, expectedReturn, months) {
+    const r = expectedReturn / 100 / 12;
+    const n = months;
+    
+    if (months <= 0) return currentAmount;
+    
+    const fvLumpSum = currentAmount * Math.pow(1 + r, n);
+    const fvSIP = monthlyContribution * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+    return Math.round(fvLumpSum + fvSIP);
   },
 
   /**

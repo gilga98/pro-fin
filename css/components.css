@@ -562,8 +562,9 @@
 
 .modal-body {
   padding: var(--space-6);
+  padding-bottom: calc(var(--space-6) + 60px); /* Extra padding for sticky footer */
   overflow-y: auto;
-  max-height: 60vh;
+  max-height: calc(90vh - 160px); /* Account for header and footer */
 }
 
 .modal-footer {
@@ -572,6 +573,34 @@
   gap: var(--space-3);
   padding: var(--space-5) var(--space-6);
   border-top: var(--glass-border);
+  background: var(--bg-secondary);
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}
+
+/* Modal Content Spacing */
+.modal-body .card {
+  margin-top: var(--space-4);
+}
+
+.modal-body .card:first-child {
+  margin-top: 0;
+}
+
+.modal-body .form-group {
+  margin-bottom: var(--space-4);
+}
+
+.modal-body h4,
+.modal-body h5 {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-3);
+}
+
+.modal-body h4:first-child,
+.modal-body h5:first-child {
+  margin-top: 0;
 }
 
 /* Tabs */

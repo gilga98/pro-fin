@@ -11,7 +11,12 @@ const Store = {
       inflationRate: 6,
       financialYear: '2025-26',
       currency: 'INR',
-      expectedReturn: 10 // Default expected return for projections
+      expectedReturn: 10, // Default expected return for projections
+      monteCarlo: {
+        enabled: true,
+        iterations: 1000,  // Number of simulations to run
+        quickIterations: 500  // For real-time updates (sliders)
+      }
     },
     entities: [
       {
@@ -511,7 +516,7 @@ const Store = {
 
   /**
    * Calculate goal metrics (SIP required, status)
-   * Uses deterministic calculation instead of Monte Carlo
+   * Uses Monte Carlo simulation for probabilistic achievability
    * For loan-funded goals: calculate SIP needed for downpayment only
    * For cash-funded goals: calculate SIP needed for full amount
    */
@@ -524,6 +529,17 @@ const Store = {
     const expectedReturn = goal.expectedReturn || 10;
     const monthlyRate = expectedReturn / 100 / 12;
     
+    // Get volatility from investment allocation
+    // Higher equity = higher volatility
+    let volatility = 15; // Default
+    if (goal.investmentAllocation && goal.investmentAllocation.length > 0) {
+      const equityPercent = goal.investmentAllocation
+        .filter(a => a.sector === 'equity')
+        .reduce((sum, a) => sum + a.percent, 0);
+      // Approximate: equity has ~18% volatility, debt ~5%, gold ~12%
+      volatility = 5 + (equityPercent / 100) * 13; // Range from 5% (all debt) to 18% (all equity)
+    }
+    
     // For loan-funded goals, target is the downpayment
     // For cash-funded goals, target is the full future value
     const target = goal.fundingType === 'loan' 
@@ -532,7 +548,7 @@ const Store = {
     
     const current = goal.currentValue || 0;
     
-    // Future value of current amount
+    // Future value of current amount (deterministic for SIP calculation)
     const fvCurrent = current * Math.pow(1 + monthlyRate, months);
     const remaining = target - fvCurrent;
     
@@ -580,33 +596,98 @@ const Store = {
     // Available income for this goal = Net Income - Expenses - EMIs - Other Goals
     const availableFunds = Math.max(0, netIncome - totalExpenses - totalEMIs - otherGoalsSIP);
     
+    // Determine actual contribution user can make
+    const actualContribution = Math.min(availableFunds, requiredSIP);
+    
+    // MONTE CARLO SIMULATION if enabled and MonteCarlo engine is available
+    const monteCarloEnabled = this.state.configuration?.monteCarlo?.enabled !== false;
+    
+    if (monteCarloEnabled && typeof MonteCarlo !== 'undefined') {
+      try {
+        const iterations = this.state.configuration?.monteCarlo?.iterations || 1000;
+        
+        // Run Monte Carlo simulation with actual contribution
+        const mcResults = MonteCarlo.simulateGoal({
+          currentAmount: current,
+          monthlyContribution: actualContribution,
+          expectedReturn: expectedReturn,
+          volatility: volatility,
+          years: months / 12,
+          targetAmount: target,
+          iterations: iterations
+        });
+        
+        // Store Monte Carlo results
+        goal.monteCarloResults = {
+          probability: mcResults.probability,
+          percentiles: mcResults.percentiles,
+          mean: mcResults.mean,
+          min: mcResults.min,
+          max: mcResults.max,
+          targetAmount: target,
+          volatility: volatility
+        };
+        
+        // Use probability from Monte Carlo as achievability
+        goal.achievability = mcResults.probability;
+        
+        // Use median (p50) as projected value
+        goal.projectedValue = mcResults.percentiles.p50;
+        
+      } catch (error) {
+        console.warn('Monte Carlo simulation failed, falling back to deterministic:', error);
+        // Fallback to deterministic calculation
+        this.calculateGoalMetricsDeterministic(goal, current, months, monthlyRate, 
+          target, actualContribution, availableFunds, requiredSIP);
+      }
+    } else {
+      // Deterministic fallback
+      this.calculateGoalMetricsDeterministic(goal, current, months, monthlyRate, 
+        target, actualContribution, availableFunds, requiredSIP);
+    }
+    
+    // Common properties regardless of calculation method
+    goal.fundingGap = Math.max(0, requiredSIP - availableFunds);
+    goal.actualContribution = actualContribution;
+    goal.canAffordRequired = availableFunds >= requiredSIP;
+    
+    // Set status based on achievability
+    if (goal.achievability >= 0.85) {
+      goal.status = 'on-track';
+    } else if (goal.achievability >= 0.5) {
+      goal.status = 'needs-attention';
+    } else {
+      goal.status = 'at-risk';
+    }
+  },
+  
+  /**
+   * Deterministic goal calculation (fallback when Monte Carlo is disabled or unavailable)
+   */
+  calculateGoalMetricsDeterministic(goal, current, months, monthlyRate, target, actualContribution, availableFunds, requiredSIP) {
     // DETERMINISTIC STATUS CALCULATION
     // Based on whether user can afford the required SIP
     const fundingRatio = requiredSIP > 0 ? availableFunds / requiredSIP : 1;
     
     if (fundingRatio >= 1) {
       // Can fully afford required SIP
-      goal.status = 'on-track';
       goal.achievability = 1.0;
     } else if (fundingRatio >= 0.5) {
       // Can afford more than half
-      goal.status = 'needs-attention';
       goal.achievability = fundingRatio;
     } else {
       // Significantly underfunded
-      goal.status = 'at-risk';
       goal.achievability = Math.max(0.1, fundingRatio);
     }
     
     // Calculate projected value at target date with current funding
-    const actualContribution = Math.min(availableFunds, requiredSIP);
     const projectedValue = current * Math.pow(1 + monthlyRate, months) 
       + actualContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
     
     goal.projectedValue = Math.round(projectedValue);
-    goal.fundingGap = Math.max(0, requiredSIP - availableFunds);
-    goal.actualContribution = actualContribution;
-    goal.canAffordRequired = availableFunds >= requiredSIP;
+    
+    // Clear Monte Carlo results if present
+    goal.monteCarloResults = null;
   },
 
   /**

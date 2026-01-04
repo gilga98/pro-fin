@@ -76,9 +76,39 @@ const ProFinance = {
 
     console.log('✅ Pro-Finance initialized successfully!');
 
+    // Migrate existing goals to have Monte Carlo results
+    this.migrateToMonteCarlo();
+
     // Show welcome message if first time
     if (!this.store.get('lastUpdated')) {
       this.showWelcome();
+    }
+  },
+
+  /**
+   * Migrate existing goals to use Monte Carlo simulations
+   */
+  migrateToMonteCarlo() {
+    const goals = this.store.get('goals') || [];
+    let migrated = 0;
+    
+    goals.forEach(goal => {
+      // Check if goal needs Monte Carlo results
+      if (!goal.monteCarloResults) {
+        try {
+          this.store.calculateGoalMetrics(goal);
+          migrated++;
+        } catch (error) {
+          console.warn(`Failed to migrate goal ${goal.name}:`, error);
+        }
+      }
+    });
+    
+    if (migrated > 0) {
+      console.log(`✨ Migrated ${migrated} goal(s) to Monte Carlo simulations`);
+      this.store.persist();
+      // Trigger refresh to update UI
+      setTimeout(() => this.refresh(), 100);
     }
   },
 
