@@ -64,12 +64,17 @@ const SankeyChart = {
           emphasis: {
             focus: 'adjacency'
           },
-          nodeAlign: 'left',
+          nodeAlign: 'justify',
           orient: 'horizontal',
           draggable: true,
-          nodeWidth: 20,
-          nodeGap: 15,
-          layoutIterations: 32,
+          nodeWidth: 12, // Slightly wider for better touch
+          nodeGap: 15, // Normal gap
+          layoutIterations: 64,
+          // Refined spacing
+          left: '5%',
+          right: '25%', 
+          top: '5%',
+          bottom: '15%', // 15% is usually enough if div height is good
           data: nodes,
           links: links,
           lineStyle: {
@@ -80,7 +85,7 @@ const SankeyChart = {
           label: {
             position: 'right',
             color: '#f9fafb',
-            fontSize: 12,
+            fontSize: 10,
             fontFamily: 'Inter, sans-serif',
             formatter: (params) => {
               return `${params.name}\n₹${Math.round(params.value / 1000)}K`;

@@ -8,7 +8,9 @@
   border: var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Allow chart labels to breathe if needed, or handle carefully */
 }
 
 .chart-container-full {
@@ -62,7 +64,7 @@
 }
 
 .chart-body {
-  height: calc(100% - 60px);
+  flex: 1;
   min-height: 300px;
 }
 
@@ -74,11 +76,11 @@
 
 /* Sankey Diagram Specific */
 .sankey-container {
-  height: 450px;
+  min-height: 450px;
 }
 
 .sankey-container .chart-body {
-  height: calc(100% - 40px);
+  min-height: 400px;
 }
 
 /* Waterfall Chart Specific */
@@ -520,16 +522,24 @@
 
 /* Responsive Chart Adjustments */
 @media (max-width: 768px) {
+  .chart-container {
+    padding: var(--space-4);
+  }
+
   .chart-container-full {
-    height: 320px;
+    height: 380px;
   }
   
   .chart-container-medium {
-    height: 280px;
+    height: 300px;
   }
   
   .sankey-container {
-    height: 300px;
+    min-height: 520px;
+  }
+  
+  .sankey-container .chart-body {
+    min-height: 450px;
   }
   
   .waterfall-container {
@@ -539,7 +549,8 @@
   .chart-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-3);
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
   }
   
   .chart-legend {
@@ -575,16 +586,20 @@
 }
 
 @media (max-width: 480px) {
+  .chart-container {
+    padding: var(--space-3);
+  }
+
   .chart-container-full {
-    height: 280px;
+    height: 350px;
   }
   
   .chart-container-medium {
-    height: 250px;
+    height: 280px;
   }
   
   .sankey-container {
-    height: 250px;
+    height: 480px; /* Even matches more complexity on very small screens */
   }
   
   .chart-title {
