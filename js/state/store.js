@@ -11,7 +11,7 @@ const Store = {
       inflationRate: 6,
       financialYear: '2025-26',
       currency: 'INR',
-      monteCarloIterations: 1000
+      expectedReturn: 10 // Default expected return for projections
     },
     entities: [
       {
@@ -458,9 +458,18 @@ const Store = {
       loanTenureYears: loanTenureYears,
       projectedEMI: emi,
       
-      // Investment assumptions
-      expectedReturn: parseFloat(goal.expectedReturn) || 12,
-      salaryIncrement: parseFloat(goal.salaryIncrement) || 8,
+      // Investment assumptions + allocation
+    investmentAllocation: goal.investmentAllocation || [
+      { sector: 'equity', percent: 60, expectedReturn: 12, taxType: 'LTCG 10%' },
+      { sector: 'debt', percent: 30, expectedReturn: 7, taxType: 'Taxed as income' },
+      { sector: 'gold', percent: 10, expectedReturn: 8, taxType: 'LTCG 20%' }
+    ],
+    expectedReturn: goal.expectedReturn || this.calculateWeightedReturn(goal.investmentAllocation || [
+      { sector: 'equity', percent: 60, expectedReturn: 12 },
+      { sector: 'debt', percent: 30, expectedReturn: 7 },
+      { sector: 'gold', percent: 10, expectedReturn: 8 }
+    ]),
+    salaryIncrement: parseFloat(goal.salaryIncrement) || 8,
       
       achievability: 0,
       createdAt: new Date().toISOString()
@@ -493,7 +502,16 @@ const Store = {
   },
 
   /**
-   * Calculate goal metrics (SIP required, achievability)
+   * Calculate weighted return from investment allocation
+   */
+  calculateWeightedReturn(allocation) {
+    if (!allocation || allocation.length === 0) return 10; // Default
+    return allocation.reduce((sum, a) => sum + (a.percent * a.expectedReturn / 100), 0);
+  },
+
+  /**
+   * Calculate goal metrics (SIP required, status)
+   * Uses deterministic calculation instead of Monte Carlo
    * For loan-funded goals: calculate SIP needed for downpayment only
    * For cash-funded goals: calculate SIP needed for full amount
    */
@@ -502,8 +520,9 @@ const Store = {
     const targetDate = new Date(goal.targetDate + '-01');
     const months = Math.max(1, Math.round((targetDate - today) / (30.44 * 24 * 60 * 60 * 1000)));
     
-    // Assume moderate return rate of 12% annually for equity-heavy portfolio
-    const monthlyRate = 0.12 / 12;
+    // Use expected return from goal or default 10% (conservative)
+    const expectedReturn = goal.expectedReturn || 10;
+    const monthlyRate = expectedReturn / 100 / 12;
     
     // For loan-funded goals, target is the downpayment
     // For cash-funded goals, target is the full future value
@@ -533,10 +552,21 @@ const Store = {
       );
     }
     
-    // Calculate ACTUAL available monthly savings for simulation
-    // This is what the user can actually invest, not what's required
+    // Calculate ACTUAL available monthly funds
     const totalIncome = this.calculateTotalMonthlyIncome();
     const totalExpenses = this.calculateTotalMonthlyExpenses();
+    
+    // Calculate tax
+    let monthlyTax = 0;
+    if (totalIncome > 0) {
+      const taxResult = TaxCalculator.calculateTax({
+        grossIncome: totalIncome * 12,
+        regime: this.state.configuration?.taxRegime || 'new'
+      });
+      monthlyTax = taxResult.monthlyTax;
+    }
+    
+    const netIncome = totalIncome - monthlyTax;
     
     // Get total EMIs from liabilities
     const totalEMIs = this.state.entities.reduce((sum, entity) => 
@@ -547,34 +577,36 @@ const Store = {
       .filter(g => g.id !== goal.id)
       .reduce((sum, g) => sum + (g.monthlyContribution || 0), 0);
     
-    // Available income for this goal = Income - Expenses - EMIs - Other Goals
-    const dispensableIncome = Math.max(0, totalIncome - totalExpenses - totalEMIs - otherGoalsSIP);
+    // Available income for this goal = Net Income - Expenses - EMIs - Other Goals
+    const availableFunds = Math.max(0, netIncome - totalExpenses - totalEMIs - otherGoalsSIP);
     
-    // For Monte Carlo, use the ACTUAL available income
-    // If user can contribute MORE than required, probability increases above 50%
-    // This gives meaningful achievability signals
-    const actualContribution = dispensableIncome;
+    // DETERMINISTIC STATUS CALCULATION
+    // Based on whether user can afford the required SIP
+    const fundingRatio = requiredSIP > 0 ? availableFunds / requiredSIP : 1;
     
-    // Get expected return from goal or use default
-    const expectedReturn = goal.expectedReturn || 12;
+    if (fundingRatio >= 1) {
+      // Can fully afford required SIP
+      goal.status = 'on-track';
+      goal.achievability = 1.0;
+    } else if (fundingRatio >= 0.5) {
+      // Can afford more than half
+      goal.status = 'needs-attention';
+      goal.achievability = fundingRatio;
+    } else {
+      // Significantly underfunded
+      goal.status = 'at-risk';
+      goal.achievability = Math.max(0.1, fundingRatio);
+    }
     
-    // Run Monte Carlo with actual contribution ability
-    const result = MonteCarlo.simulateGoal({
-      currentAmount: current,
-      monthlyContribution: actualContribution,
-      expectedReturn: expectedReturn,
-      volatility: 15,
-      years: months / 12,
-      targetAmount: target,
-      iterations: this.state.configuration.monteCarloIterations
-    });
+    // Calculate projected value at target date with current funding
+    const actualContribution = Math.min(availableFunds, requiredSIP);
+    const projectedValue = current * Math.pow(1 + monthlyRate, months) 
+      + actualContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
     
-    goal.achievability = result.probability;
-    goal.percentiles = result.percentiles;
-    
-    // Store the actual contribution for display purposes
+    goal.projectedValue = Math.round(projectedValue);
+    goal.fundingGap = Math.max(0, requiredSIP - availableFunds);
     goal.actualContribution = actualContribution;
-    goal.canAffordRequired = dispensableIncome >= goal.monthlyContribution;
+    goal.canAffordRequired = availableFunds >= requiredSIP;
   },
 
   /**

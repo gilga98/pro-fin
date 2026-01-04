@@ -12,10 +12,11 @@ const TradeOff = {
    */
   init() {
     const delaySlider = document.getElementById('delay-slider');
-    const riskSlider = document.getElementById('risk-slider');
     const reduceSlider = document.getElementById('reduce-slider');
-
-    [delaySlider, riskSlider, reduceSlider].forEach(slider => {
+    
+    // Risk is now handled by InvestmentAllocator
+    
+    [delaySlider, reduceSlider].forEach(slider => {
       if (slider) {
         slider.addEventListener('input', () => this.updateCalculation());
       }
@@ -30,21 +31,49 @@ const TradeOff = {
     if (!goal) return;
 
     this.currentGoal = goal;
+
+    // Check achievability for warning banner
+    // If goal is "on-track" (achievability >= 1), hide warning. Else show.
+    const warningEl = document.getElementById('tradeoff-warning');
+    if (warningEl) {
+        warningEl.style.display = (goal.achievability < 1.0) ? 'block' : 'none';
+    }
+
+    // Initialize Investment Allocator with goal allocation
+    if (typeof InvestmentAllocator !== 'undefined') {
+        InvestmentAllocator.init(goal.investmentAllocation); // Defaults if null
+        InvestmentAllocator.render('tradeoff-allocation-container');
+        // Hook for updates
+        InvestmentAllocator.setOnUpdate(() => this.updateCalculation());
+    } 
+
+    this.planReturn = goal.expectedReturn || 12;
+    
+    // Calculate derived return from current allocator state
+    let calculatedReturn = 12;
+    if (typeof InvestmentAllocator !== 'undefined') {
+        calculatedReturn = InvestmentAllocator.getWeightedReturn();
+    }
+    
     this.originalParams = {
       delay: 0,
-      risk: 12,
+      risk: calculatedReturn,
       reduce: 0
     };
 
     // Update modal content
     document.getElementById('tradeoff-goal-name').textContent = goal.name;
     document.getElementById('tradeoff-target').textContent = Validators.formatCurrency(goal.futureValue || goal.targetAmount);
-    document.getElementById('tradeoff-current-prob').textContent = `${Math.round((goal.achievability || 0) * 100)}%`;
+    
+    // Show current coverage instead of probability
+    const currentScore = Math.round((goal.achievability || 0) * 100);
+    document.getElementById('tradeoff-current-prob').textContent = `${currentScore}%`;
 
     // Reset sliders
-    document.getElementById('delay-slider').value = 0;
-    document.getElementById('risk-slider').value = 12;
-    document.getElementById('reduce-slider').value = 0;
+    const delaySlider = document.getElementById('delay-slider');
+    const reduceSlider = document.getElementById('reduce-slider');
+    if (delaySlider) delaySlider.value = 0;
+    if (reduceSlider) reduceSlider.value = 0;
 
     // Initial calculation
     this.updateCalculation();
@@ -59,61 +88,78 @@ const TradeOff = {
   updateCalculation() {
     if (!this.currentGoal) return;
 
-    const delayMonths = parseInt(document.getElementById('delay-slider').value);
-    const riskLevel = parseInt(document.getElementById('risk-slider').value);
-    const reducePercent = parseInt(document.getElementById('reduce-slider').value);
+    const delaySlider = document.getElementById('delay-slider');
+    const reduceSlider = document.getElementById('reduce-slider');
+    
+    const delayMonths = delaySlider ? parseInt(delaySlider.value) : 0;
+    const reducePercent = reduceSlider ? parseInt(reduceSlider.value) : 0;
+    
+    // Get risk from allocator
+    let riskLevel = 12;
+    if (typeof InvestmentAllocator !== 'undefined') {
+        riskLevel = InvestmentAllocator.getWeightedReturn();
+    }
 
     // Update display values
-    document.getElementById('delay-value').textContent = 
-      delayMonths === 0 ? 'No delay' : `${delayMonths} months`;
+    const delayValEl = document.getElementById('delay-value');
+    if (delayValEl) delayValEl.textContent = delayMonths === 0 ? 'No delay' : `${delayMonths} months`;
     
-    const riskLabels = {
-      6: 'Conservative (6%)',
-      8: 'Moderate-Low (8%)',
-      10: 'Moderate (10%)',
-      12: 'Moderate-High (12%)',
-      14: 'Aggressive (14%)',
-      16: 'Very Aggressive (16%)',
-      18: 'Ultra Aggressive (18%)'
-    };
-    document.getElementById('risk-value').textContent = 
-      riskLabels[riskLevel] || `${riskLevel}%`;
-    
-    document.getElementById('reduce-value').textContent = 
-      reducePercent === 0 ? 'Full target' : `-${reducePercent}%`;
+    const reduceValEl = document.getElementById('reduce-value');
+    if (reduceValEl) reduceValEl.textContent = reducePercent === 0 ? 'Full target' : `-${reducePercent}%`;
 
-    // Calculate new probability
-    const targetDate = new Date(this.currentGoal.targetDate + '-01');
+    // Calculate new parameters
+    const currentAmount = this.currentGoal.currentValue || 0;
+    const monthlyContribution = this.currentGoal.monthlyContribution || 0;
+    
+    // Original target details
+    const originalTargetDate = new Date(this.currentGoal.targetDate + '-01');
     const now = new Date();
-    const baseYears = (targetDate - now) / (365.25 * 24 * 60 * 60 * 1000);
+    
+    // Adjusted timeline
+    const totalMonths = Math.max(1, 
+      Math.round((originalTargetDate - now) / (30.44 * 24 * 60 * 60 * 1000)) + delayMonths
+    );
+    const years = totalMonths / 12;
 
-    const result = MonteCarlo.tradeoffSimulation({
-      currentAmount: this.currentGoal.currentValue || 0,
-      currentMonthlyContribution: this.currentGoal.monthlyContribution || 0,
-      targetAmount: this.currentGoal.futureValue || this.currentGoal.targetAmount,
-      baseYears,
-      baseReturn: 12,
-      baseVolatility: 15,
-      delayMonths,
-      riskAdjustment: riskLevel - 12,
-      targetReduction: reducePercent
-    });
+    // Adjusted Target Amount
+    const originalTargetAmount = this.currentGoal.futureValue || this.currentGoal.targetAmount;
+    const targetAmount = Math.round(originalTargetAmount * (1 - reducePercent / 100));
 
-    const newProb = Math.round(result.probability * 100);
+    // Projected Future Value (Deterministic)
+    // FV = P(1+r)^t + SIP * (((1+r)^n - 1) / r) * (1+r)
+    const r = riskLevel / 100 / 12; // Monthly rate
+    const n = totalMonths;
 
-    // Update display
-    document.getElementById('tradeoff-new-prob').textContent = `${newProb}%`;
+    let projectedFV = 0;
+    if (totalMonths > 0) {
+        const fvLumpSum = currentAmount * Math.pow(1 + r, n);
+        const fvSIP = monthlyContribution * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+        projectedFV = Math.round(fvLumpSum + fvSIP);
+    } else {
+        projectedFV = currentAmount;
+    }
 
-    // Update probability ring
+    // Calculate Goal Coverage (formerly Achievability Score)
+    const score = targetAmount > 0 ? projectedFV / targetAmount : 1; // Raw ratio
+    const displayScore = Math.min(score, 1.0); // Cap at 1.0 for ring fill
+    
+    // Text shows percentage (e.g. 120%)
+    const coveragePercent = Math.round(score * 100);
+
+    // Update display text
+    const probEl = document.getElementById('tradeoff-new-prob');
+    if (probEl) probEl.textContent = `${coveragePercent}%`;
+
+    // Update ring
     const ring = document.getElementById('tradeoff-prob-ring');
     if (ring) {
       const circumference = 2 * Math.PI * 26;
-      ring.style.strokeDashoffset = circumference * (1 - result.probability);
+      ring.style.strokeDashoffset = circumference * (1 - displayScore);
 
       ring.classList.remove('high', 'medium', 'low');
-      if (result.probability >= 0.75) {
+      if (coveragePercent >= 95) {
         ring.classList.add('high');
-      } else if (result.probability >= 0.5) {
+      } else if (coveragePercent >= 70) {
         ring.classList.add('medium');
       } else {
         ring.classList.add('low');
@@ -127,9 +173,20 @@ const TradeOff = {
   applyChanges() {
     if (!this.currentGoal) return;
 
-    const delayMonths = parseInt(document.getElementById('delay-slider').value);
-    const riskLevel = parseInt(document.getElementById('risk-slider').value);
-    const reducePercent = parseInt(document.getElementById('reduce-slider').value);
+    const delaySlider = document.getElementById('delay-slider');
+    const reduceSlider = document.getElementById('reduce-slider');
+    
+    const delayMonths = delaySlider ? parseInt(delaySlider.value) : 0;
+    const reducePercent = reduceSlider ? parseInt(reduceSlider.value) : 0;
+    
+    // Get new logic from allocator
+    let riskLevel = 12;
+    let newAllocation = null;
+    
+    if (typeof InvestmentAllocator !== 'undefined') {
+        riskLevel = InvestmentAllocator.getWeightedReturn();
+        newAllocation = InvestmentAllocator.getAllocation();
+    }
 
     // Calculate new target date
     let newTargetDate = this.currentGoal.targetDate;
@@ -147,7 +204,8 @@ const TradeOff = {
     const updates = {
       targetDate: newTargetDate,
       targetAmount: newTarget,
-      expectedReturn: riskLevel
+      expectedReturn: riskLevel, // Update return
+      investmentAllocation: newAllocation // Update allocation
     };
 
     // Recalculate future value
@@ -168,11 +226,12 @@ const TradeOff = {
     let changes = [];
     if (delayMonths > 0) changes.push(`delayed by ${delayMonths} months`);
     if (reducePercent > 0) changes.push(`target reduced by ${reducePercent}%`);
-    if (riskLevel !== 12) changes.push(`risk adjusted to ${riskLevel}%`);
+    if (Math.abs(riskLevel - (this.currentGoal.expectedReturn || 12)) > 0.1) changes.push(`risk adjusted to ${riskLevel.toFixed(1)}%`);
+    if (newAllocation) changes.push('allocation updated');
 
     Notifications.success(
       'Goal Optimized! ✨',
-      `${this.currentGoal.name}: ${changes.join(', ')}`
+      `${this.currentGoal.name}: ${changes.join(', ') || 'Updated'}`
     );
 
     // Close modal and refresh

@@ -203,5 +203,46 @@ const FamilyOffice = {
     updateEl('total-assets', balance.totalAssets);
     updateEl('total-liabilities', balance.totalLiabilities);
     updateEl('net-worth', balance.netWorth);
+  },
+
+  /**
+   * Update sidebar goals progress display
+   */
+  updateGoalsProgress() {
+    const goals = Store.get('goals') || [];
+    const container = document.getElementById('goals-summary');
+    
+    if (!container) return;
+
+    if (goals.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state" style="padding: var(--space-6);">
+          <div style="font-size: 2rem; margin-bottom: var(--space-2);">🎯</div>
+          <p class="text-muted" style="font-size: var(--font-size-sm);">No goals set yet</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = goals.slice(0, 3).map(goal => {
+      const progress = Math.min(100, Math.round((goal.currentValue || 0) / (goal.targetAmount || 1) * 100));
+      const achievability = goal.achievability || 0;
+      const statusClass = achievability >= 0.75 ? 'success' : achievability >= 0.5 ? 'warning' : 'danger';
+      
+      return `
+        <div class="card" style="padding: var(--space-3); margin-bottom: var(--space-2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2);">
+            <span style="font-weight: 500; font-size: var(--font-size-sm);">${goal.name}</span>
+            <span class="badge badge-${statusClass}" style="font-size: 10px;">${Math.round(achievability * 100)}%</span>
+          </div>
+          <div class="goal-progress-bar" style="height: 4px; margin-bottom: var(--space-1);">
+            <div class="goal-progress-fill" style="width: ${progress}%; height: 100%;"></div>
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted);">
+            ${Validators.formatCurrency(goal.currentValue || 0, true)} / ${Validators.formatCurrency(goal.targetAmount, true)}
+          </div>
+        </div>
+      `;
+    }).join('') + (goals.length > 3 ? `<div class="text-muted text-sm text-center">+${goals.length - 3} more goals</div>` : '');
   }
 };

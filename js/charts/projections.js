@@ -11,12 +11,18 @@ const ProjectionChart = {
    * Initialize the projection chart
    */
   init(containerId) {
+    this.containerId = containerId; // Store for potential reinit
     this.container = document.getElementById(containerId);
     if (!this.container) return;
 
     if (typeof echarts === 'undefined') {
       console.error('ECharts not loaded');
       return;
+    }
+
+    // Dispose existing chart before reinit
+    if (this.chart) {
+      this.chart.dispose();
     }
 
     this.chart = echarts.init(this.container, 'dark');
@@ -30,7 +36,16 @@ const ProjectionChart = {
    * Update chart with projection data
    */
   update(data) {
+    // Ensure chart is initialized (handles case when container was hidden)
+    if (!this.chart && this.container) {
+      this.init(this.container.id);
+    }
+    
+    // If still no chart, container might not exist yet
     if (!this.chart) return;
+
+    // Resize to handle container becoming visible
+    this.chart.resize();
 
     const projectionData = this.generateProjections(data);
     
@@ -54,7 +69,7 @@ const ProjectionChart = {
         }
       },
       legend: {
-        data: ['10th Percentile', 'Median (50th)', '90th Percentile', 'Goal Targets'],
+        data: ['Projected Wealth', 'Goal Targets'],
         textStyle: { color: '#9ca3af' },
         bottom: 10
       },
@@ -91,19 +106,9 @@ const ProjectionChart = {
       },
       series: [
         {
-          name: '10th Percentile',
+          name: 'Projected Wealth',
           type: 'line',
-          data: projectionData.p10,
-          smooth: true,
-          lineStyle: { width: 1, type: 'dashed', color: '#ef4444' },
-          itemStyle: { color: '#ef4444' },
-          areaStyle: null,
-          symbol: 'none'
-        },
-        {
-          name: 'Median (50th)',
-          type: 'line',
-          data: projectionData.p50,
+          data: projectionData.projected,
           smooth: true,
           lineStyle: { width: 3, color: '#10b981' },
           itemStyle: { color: '#10b981' },
@@ -120,16 +125,6 @@ const ProjectionChart = {
           symbol: 'circle',
           symbolSize: 6,
           showSymbol: false
-        },
-        {
-          name: '90th Percentile',
-          type: 'line',
-          data: projectionData.p90,
-          smooth: true,
-          lineStyle: { width: 1, type: 'dashed', color: '#8b5cf6' },
-          itemStyle: { color: '#8b5cf6' },
-          areaStyle: null,
-          symbol: 'none'
         },
         {
           name: 'Goal Targets',
@@ -213,9 +208,13 @@ const ProjectionChart = {
     // Sort events by month
     events.sort((a, b) => a.month - b.month);
 
-    // Run simplified projection with timeline adjustments
+    // Run simplified linear projection with timeline adjustments
     const projectionPoints = monthLabels.length;
-    const p10 = [], p50 = [], p90 = [];
+    const projected = [];
+    
+    // Get expected return from configuration or use default 10%
+    const expectedReturn = (data.configuration?.expectedReturn || 10) / 100;
+    const monthlyReturn = expectedReturn / 12;
     
     let currentValue = totalCurrentValue;
     let monthlyContrib = baseMonthlyContribution;
@@ -232,10 +231,8 @@ const ProjectionChart = {
             monthlyContrib -= evt.sipRelease;
             monthlyEMI += evt.emiStart;
           } else if (evt.type === 'cash_goal_complete') {
-            // Cash-funded goal: SIP releases back to investment pool
-            // (can reinvest if user chooses, for now we keep it as savings rate)
+            // Cash-funded goal: SIP releases back
             monthlyContrib -= evt.sipRelease;
-            // Released funds could boost projections
             currentValue += evt.sipRelease * 6; // 6 months bonus savings
           }
           evt.applied = true;
@@ -245,24 +242,16 @@ const ProjectionChart = {
       // Net contribution = contributions - EMI obligations
       const netMonthlyContrib = Math.max(0, monthlyContrib - monthlyEMI);
       
-      // Simple projection with variance bands (6-month step)
+      // Simple compound growth projection
       const monthsOfGrowth = currentMonth;
-      const avgReturn = 0.12 / 12;
-      const vol = 0.15 / Math.sqrt(12);
-      
       const invested = totalCurrentValue + (netMonthlyContrib * monthsOfGrowth);
-      const growthFactor = Math.pow(1 + avgReturn, monthsOfGrowth);
+      const growthFactor = Math.pow(1 + monthlyReturn, monthsOfGrowth);
       
-      const medianValue = invested * growthFactor;
-      const lowFactor = Math.pow(1 + avgReturn - 1.5 * vol, monthsOfGrowth);
-      const highFactor = Math.pow(1 + avgReturn + 1.5 * vol, monthsOfGrowth);
-      
-      p50.push(Math.round(medianValue));
-      p10.push(Math.round(invested * lowFactor));
-      p90.push(Math.round(invested * highFactor));
+      const projectedValue = invested * growthFactor;
+      projected.push(Math.round(projectedValue));
       
       // Update current value for next iteration
-      currentValue = medianValue;
+      currentValue = projectedValue;
     }
 
     // Add goal markers
@@ -284,9 +273,7 @@ const ProjectionChart = {
 
     return {
       labels: monthLabels,
-      p10,
-      p50,
-      p90,
+      projected,
       goalMarkers
     };
   },

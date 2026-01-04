@@ -8,7 +8,6 @@ const ReservoirView = {
    * Initialize Reservoir view
    */
   init() {
-    ProjectionChart.init('projection-chart');
     this.setupValueToggle();
   },
 
@@ -34,9 +33,6 @@ const ReservoirView = {
     
     // Update goals grid
     this.renderGoals(false); // Default to today's value
-    
-    // Update projection chart
-    ProjectionChart.update(state);
     
     // Update probability indicator
     this.updateProbability(state);

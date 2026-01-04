@@ -14,7 +14,7 @@
   <!-- Stylesheets -->
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/components.css?v=3">
   <link rel="stylesheet" href="css/charts.css">
   
   <!-- Favicon -->
@@ -183,6 +183,11 @@
             </div>
           </div>
         </div>
+        
+        <!-- Dispensable Income Planner -->
+        <div id="dispensable-planner" class="mb-8">
+          <!-- Planner content rendered by DispensablePlanner.render() -->
+        </div>
       </section>
       
       <!-- Wealth & Goals View (formerly Reservoir) -->
@@ -215,27 +220,7 @@
           </div>
         </div>
         
-        <!-- Projection Chart -->
-        <div class="chart-container chart-container-full">
-          <div class="chart-header">
-            <div>
-              <h3 class="chart-title">Wealth Projection</h3>
-              <p class="chart-subtitle">Monte Carlo simulation with 1000 scenarios</p>
-            </div>
-            <div class="probability-indicator">
-              <div class="probability-ring">
-                <svg viewBox="0 0 60 60">
-                  <circle class="probability-ring-bg" cx="30" cy="30" r="26"></circle>
-                  <circle class="probability-ring-fill high" cx="30" cy="30" r="26" 
-                          stroke-dasharray="163.36" stroke-dashoffset="163.36" id="probability-ring"></circle>
-                </svg>
-                <span class="probability-value" id="probability-value">--%</span>
-              </div>
-              <span class="probability-label">Success Rate</span>
-            </div>
-          </div>
-          <div class="chart-body" id="projection-chart"></div>
-        </div>
+
       </section>
     </main>
   </div>
@@ -343,8 +328,9 @@
                 <label class="form-label required">Monthly Amount</label>
                 <div class="form-input-wrapper">
                   <span class="form-input-prefix">₹</span>
-                  <input type="number" class="form-input currency" name="amount" placeholder="0" required>
+                  <input type="number" class="form-input currency" name="amount" placeholder="0" required oninput="ProFinance.ui.syncInputSlider(this)">
                 </div>
+                <input type="range" class="range-slider mt-2" min="0" max="500000" value="0" tabindex="-1" oninput="ProFinance.ui.syncInputSlider(this)">
               </div>
               <div class="form-group">
                 <label class="form-label">Income Type</label>
@@ -384,8 +370,9 @@
                 <label class="form-label required">Monthly Amount</label>
                 <div class="form-input-wrapper">
                   <span class="form-input-prefix">₹</span>
-                  <input type="number" class="form-input currency" name="amount" placeholder="0" required>
+                  <input type="number" class="form-input currency" name="amount" placeholder="0" required oninput="ProFinance.ui.syncInputSlider(this)">
                 </div>
+                <input type="range" class="range-slider mt-2" min="0" max="200000" value="0" tabindex="-1" oninput="ProFinance.ui.syncInputSlider(this)">
               </div>
               <div class="form-group">
                 <label class="form-label">Category</label>
@@ -440,8 +427,9 @@
                 <label class="form-label required">Current Value</label>
                 <div class="form-input-wrapper">
                   <span class="form-input-prefix">₹</span>
-                  <input type="number" class="form-input currency" name="currentValue" placeholder="0" required>
+                  <input type="number" class="form-input currency" name="currentValue" placeholder="0" required oninput="ProFinance.ui.syncInputSlider(this)">
                 </div>
+                <input type="range" class="range-slider mt-2" min="0" max="10000000" value="0" tabindex="-1" oninput="ProFinance.ui.syncInputSlider(this)">
               </div>
               <div class="form-group">
                 <label class="form-label">Purchase Value</label>
@@ -459,7 +447,7 @@
               <div class="form-group">
                 <label class="form-label">Volatility (%)</label>
                 <input type="number" class="form-input" name="volatility" placeholder="15" step="0.1">
-                <span class="form-hint">Standard deviation for Monte Carlo</span>
+                <span class="form-hint">How much the value might swing up or down (%)</span>
               </div>
             </div>
             <input type="hidden" name="assetType" id="selected-asset-type">
@@ -476,8 +464,9 @@
                 <label class="form-label required">Outstanding Principal</label>
                 <div class="form-input-wrapper">
                   <span class="form-input-prefix">₹</span>
-                  <input type="number" class="form-input currency" name="principal" placeholder="0" required>
+                  <input type="number" class="form-input currency" name="principal" placeholder="0" required oninput="ProFinance.ui.syncInputSlider(this)">
                 </div>
+                <input type="range" class="range-slider mt-2" min="0" max="10000000" value="0" tabindex="-1" oninput="ProFinance.ui.syncInputSlider(this)">
               </div>
               <div class="form-group">
                 <label class="form-label required">Interest Rate (%)</label>
@@ -585,6 +574,24 @@
               <input type="month" class="form-input" name="targetDate" required>
             </div>
           </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">Current Progress (Saved So Far)</label>
+              <div class="form-input-wrapper">
+                <span class="form-input-prefix">₹</span>
+                <input type="number" class="form-input currency" name="currentValue" placeholder="0">
+              </div>
+              <span class="form-hint">How much you've already saved towards this goal</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Monthly SIP</label>
+              <div class="form-input-wrapper">
+                <span class="form-input-prefix">₹</span>
+                <input type="number" class="form-input currency" name="monthlyContribution" placeholder="Auto-calculated">
+              </div>
+              <span class="form-hint">Leave blank to auto-calculate</span>
+            </div>
+          </div>
           <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4);">
             <div class="flex justify-between mb-2">
               <span class="text-muted">Inflation Adjustment (6%)</span>
@@ -616,15 +623,19 @@
             </select>
           </div>
           
+          <!-- Investment Allocation by Sector -->
+          <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4);">
+            <h5 class="mb-3">📊 Investment Allocation</h5>
+            <p class="text-muted text-sm mb-3">How will you invest your SIP? Adjust sliders to allocate across sectors.</p>
+            <div id="investment-allocation-sliders">
+              <!-- Rendered by InvestmentAllocator.render() -->
+            </div>
+          </div>
+          
           <!-- Investment Assumptions -->
           <div class="card mt-4" style="background: var(--bg-tertiary); padding: var(--space-4);">
             <h5 class="mb-3">📈 Investment Assumptions</h5>
             <div class="grid-2">
-              <div class="form-group">
-                <label class="form-label">Expected Return (%/year)</label>
-                <input type="number" class="form-input" name="expectedReturn" value="12" min="0" max="30" step="0.5">
-                <span class="form-hint">Equity ~12%, Debt ~7%</span>
-              </div>
               <div class="form-group">
                 <label class="form-label">Salary Increment (%/year)</label>
                 <input type="number" class="form-input" name="salaryIncrement" value="8" min="0" max="30" step="1">
@@ -690,7 +701,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="ProFinance.ui.closeModal('goal-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="ProFinance.goals.save()">🎯 Create Goal</button>
+        <button class="btn btn-primary" onclick="ProFinance.goals.save()">💾 Save</button>
       </div>
     </div>
   </div>
@@ -703,7 +714,7 @@
         <button class="modal-close" onclick="ProFinance.ui.closeModal('tradeoff-modal')">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="card mb-4" style="background: rgba(239, 68, 68, 0.1); border-color: var(--accent-danger);">
+        <div id="tradeoff-warning" class="card mb-4" style="background: rgba(239, 68, 68, 0.1); border-color: var(--accent-danger); display: none;">
           <div class="flex items-center gap-3">
             <span style="font-size: 2rem;">⚠️</span>
             <div>
@@ -723,7 +734,7 @@
             <span class="font-semibold" id="tradeoff-target">₹0</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-muted">Current Probability:</span>
+            <span class="text-muted">Current Coverage:</span>
             <span class="badge badge-danger" id="tradeoff-current-prob">0%</span>
           </div>
         </div>
@@ -740,16 +751,8 @@
           </div>
         </div>
         
-        <div class="tradeoff-slider">
-          <div class="tradeoff-header">
-            <span class="tradeoff-label">📈 Investment Risk Level</span>
-            <span class="tradeoff-value" id="risk-value">Moderate (12%)</span>
-          </div>
-          <input type="range" class="tradeoff-input" id="risk-slider" min="6" max="18" value="12">
-          <div class="tradeoff-labels">
-            <span>Conservative (6%)</span>
-            <span>Aggressive (18%)</span>
-          </div>
+        <div id="tradeoff-allocation-container" class="mb-4">
+          <!-- Investment Allocation -->
         </div>
         
         <div class="tradeoff-slider">
@@ -767,7 +770,7 @@
         <div class="card mt-6" style="background: var(--bg-tertiary);">
           <div class="flex justify-between items-center">
             <div>
-              <div class="text-muted mb-1">New Probability of Success</div>
+              <div class="text-muted mb-1">Projected Goal Coverage</div>
               <div class="stat-value text-gradient" id="tradeoff-new-prob">0%</div>
             </div>
             <div class="probability-indicator">
@@ -866,8 +869,8 @@
             <input type="number" class="form-input" id="settings-inflation" value="6" step="0.5">
           </div>
           <div class="form-group">
-            <label class="form-label">Monte Carlo Iterations</label>
-            <input type="number" class="form-input" id="settings-mc-iterations" value="1000" step="100">
+            <label class="form-label">Default Expected Return (%)</label>
+            <input type="number" class="form-input" id="settings-expected-return" value="10" step="0.5" title="Default annual return rate for goal projections">
           </div>
         </div>
         
@@ -916,27 +919,28 @@
   
   <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
   
   <!-- Application Scripts -->
-  <script src="js/state/store.js"></script>
+  <script src="js/state/store.js?v=2"></script>
   <script src="js/state/persistence.js"></script>
   <script src="js/data/models.js"></script>
   <script src="js/data/validators.js"></script>
-  <script src="js/engines/monte-carlo.js"></script>
   <script src="js/engines/tax-calculator.js"></script>
   <script src="js/engines/inflation.js"></script>
   <script src="js/engines/debt-snowball.js"></script>
   <script src="js/engines/goal-phases.js"></script>
   <script src="js/components/navigation.js"></script>
   <script src="js/components/notifications.js"></script>
+  <script src="js/components/dispensable-planner.js"></script>
+  <script src="js/components/investment-allocator.js?v=4"></script>
+  <script src="js/components/slider-accordion.js"></script>
   <script src="js/charts/sankey.js"></script>
   <script src="js/charts/waterfall.js"></script>
   <script src="js/charts/projections.js"></script>
   <script src="js/views/flow-view.js"></script>
   <script src="js/views/reservoir-view.js"></script>
   <script src="js/views/family-office.js"></script>
-  <script src="js/views/trade-off.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/views/trade-off.js?v=4"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>

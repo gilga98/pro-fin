@@ -28,7 +28,6 @@ const ProFinance = {
 
     // Initialize engines
     this.engines = {
-      monteCarlo: MonteCarlo,
       tax: TaxCalculator,
       inflation: Inflation,
       debtSnowball: DebtSnowball
@@ -141,6 +140,10 @@ const ProFinance = {
         // Update funding sources
         FamilyOffice.updateEntitySelects();
 
+        // Initialize investment allocator with defaults
+        InvestmentAllocator.init();
+        InvestmentAllocator.render('investment-allocation-sliders');
+
         this.ui.showModal('goal-modal');
       },
 
@@ -197,6 +200,40 @@ const ProFinance = {
         ProFinance.ui.showModal('manage-data-modal');
       },
 
+      /**
+       * Sync range slider and number input
+       */
+      syncInputSlider: (el) => {
+        const isRange = el.type === 'range';
+        let target;
+        
+        if (isRange) {
+          // Range -> Number Input (in wrapper)
+          // Look for previous element sibling that contains the input, or is the input wrapper
+          target = el.previousElementSibling?.querySelector('input[type="number"]') || 
+                   el.previousElementSibling?.previousElementSibling?.querySelector('input[type="number"]');
+        } else {
+          // Number Input -> Range (sibling of wrapper)
+          // Input is inside .form-input-wrapper, so go up to wrapper, then next sibling
+          target = el.parentElement?.nextElementSibling;
+          // If next sibling is not range (maybe hint text?), try next next
+          if (target && target.type !== 'range') target = target.nextElementSibling;
+        }
+        
+        if (target && (target.type === 'range' || target.type === 'number')) {
+          target.value = el.value;
+          
+          // Dynamically update range max if input exceeds it
+          if (!isRange) {
+            const val = parseFloat(el.value) || 0;
+            const currentMax = parseFloat(target.max) || 100000;
+            if (val > currentMax) {
+              target.max = Math.ceil(val * 1.5);
+            }
+          }
+        }
+      },
+
       switchManageTab: (type) => {
         ProFinance.ui.currentManageType = type;
         
@@ -209,6 +246,11 @@ const ProFinance = {
         ProFinance.ui.renderManageList(type);
       },
 
+      refreshManageDataList: () => {
+        const type = ProFinance.ui.currentManageType || 'income';
+        ProFinance.ui.renderManageList(type);
+      },
+      
       renderManageList: (type) => {
         const listContainer = document.getElementById('manage-data-list');
         const emptyState = document.getElementById('manage-data-empty');
@@ -221,28 +263,71 @@ const ProFinance = {
         }
 
         let items = [];
-        let labelField = 'name';
         let amountField = 'amount';
-        let typeField = 'type';
+        const entityId = entity.id || 'user';
         
+        // Get category icons
+        const categoryIcons = {
+          housing: '🏠', utilities: '💡', transport: '🚗', groceries: '🛒',
+          insurance: '🛡️', education: '📚', healthcare: '🏥', lifestyle: '✨',
+          other: '📦', salary: '💼', business: '💰', freelance: '🎯',
+          rental: '🏘️', dividend: '📊', interest: '💵'
+        };
+        
+        const assetIcons = {
+          'gold': '🪙', 'land': '🏞️', 'real-estate': '🏠', 'fd': '🏦',
+          'ppf': '📜', 'bonds': '📃', 'stocks': '📈', 'mutual-funds': '📊',
+          'elss': '🛡️', 'epf': '👴', 'nps': '🏛️', 'private-loan': '🤝'
+        };
+
         switch (type) {
           case 'income':
-            items = entity.incomeStreams || [];
-            typeField = 'type';
+            items = (entity.incomeStreams || []).map(i => ({
+              id: i.id,
+              name: i.name,
+              icon: categoryIcons[i.type] || '💰',
+              amount: i.amount,
+              maxAmount: Math.max(i.amount * 3, 500000),
+              type: i.type,
+              entityId
+            }));
             break;
           case 'expense':
-            items = entity.expenses || [];
-            typeField = 'category';
+            items = (entity.expenses || []).map(e => ({
+              id: e.id,
+              name: e.name,
+              icon: categoryIcons[e.category] || '💸',
+              amount: e.amount,
+              maxAmount: Math.max(e.amount * 3, 200000),
+              category: e.category,
+              type: e.type,
+              entityId
+            }));
             break;
           case 'asset':
-            items = entity.assets || [];
+            items = (entity.assets || []).map(a => ({
+              id: a.id,
+              name: a.name,
+              icon: assetIcons[a.assetType] || '📊',
+              amount: a.currentValue,
+              maxAmount: Math.max(a.currentValue * 3, 10000000),
+              assetType: a.assetType,
+              expectedReturn: a.expectedReturn,
+              entityId
+            }));
             amountField = 'currentValue';
-            typeField = 'assetType';
             break;
           case 'liability':
-            items = entity.liabilities || [];
+            items = (entity.liabilities || []).map(l => ({
+              id: l.id,
+              name: l.name,
+              icon: '📋',
+              amount: l.principal,
+              maxAmount: Math.max(l.principal * 2, 10000000),
+              type: l.loanType,
+              entityId
+            }));
             amountField = 'principal';
-            typeField = 'loanType';
             break;
         }
 
@@ -253,21 +338,28 @@ const ProFinance = {
         }
 
         emptyState.style.display = 'none';
-        listContainer.innerHTML = items.map(item => `
-          <div class="data-item flex justify-between items-center p-3 mb-2" 
-               style="background: var(--bg-tertiary); border-radius: var(--radius-lg);">
-            <div style="flex: 1; min-width: 0;">
-              <div class="font-semibold" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item[labelField]}</div>
-              <div class="text-sm text-muted">${item[typeField] || 'Other'}</div>
+        
+        // Use SliderAccordion if available, otherwise fall back to simple list
+        if (typeof SliderAccordion !== 'undefined') {
+          listContainer.innerHTML = SliderAccordion.render(items, { dataType: type });
+        } else {
+          // Fallback to simple list
+          listContainer.innerHTML = items.map(item => `
+            <div class="data-item flex justify-between items-center p-3 mb-2" 
+                 style="background: var(--bg-tertiary); border-radius: var(--radius-lg);">
+              <div style="flex: 1; min-width: 0;">
+                <div class="font-semibold" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</div>
+                <div class="text-sm text-muted">${item.type || item.category || item.assetType || 'Other'}</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="font-semibold" style="white-space: nowrap;">${Validators.formatCurrency(item.amount || 0)}</span>
+                <button class="btn btn-sm btn-secondary" onclick="ProFinance.data.editItem('${type}', '${item.id}')">✏️</button>
+                <button class="btn btn-sm btn-outline" style="color: var(--accent-danger); border-color: var(--accent-danger);" 
+                        onclick="ProFinance.data.deleteItem('${type}', '${item.id}')">🗑️</button>
+              </div>
             </div>
-            <div class="flex items-center gap-3">
-              <span class="font-semibold" style="white-space: nowrap;">${Validators.formatCurrency(item[amountField] || 0)}</span>
-              <button class="btn btn-sm btn-secondary" onclick="ProFinance.data.editItem('${type}', '${item.id}')">✏️</button>
-              <button class="btn btn-sm btn-outline" style="color: var(--accent-danger); border-color: var(--accent-danger);" 
-                      onclick="ProFinance.data.deleteItem('${type}', '${item.id}')">🗑️</button>
-            </div>
-          </div>
-        `).join('');
+          `).join('');
+        }
       }
     };
 
@@ -587,6 +679,12 @@ const ProFinance = {
         // Handle checkbox
         data.inflationAdjust = formData.get('inflationAdjust') === 'on';
 
+        // Get investment allocation from the allocator
+        if (typeof InvestmentAllocator !== 'undefined') {
+          data.investmentAllocation = InvestmentAllocator.getAllocation();
+          data.expectedReturn = InvestmentAllocator.getWeightedReturn();
+        }
+
         // Validate
         const validation = Validators.validateGoal(data);
         if (!validation.valid) {
@@ -669,6 +767,12 @@ const ProFinance = {
           c.classList.toggle('selected', c.dataset.goalType === goal.type);
         });
         form.querySelector('input[name="goalType"]').value = goal.type;
+
+        // Initialize investment allocator with existing allocation
+        if (typeof InvestmentAllocator !== 'undefined') {
+          InvestmentAllocator.init(goal.investmentAllocation);
+          InvestmentAllocator.render('investment-allocation-sliders');
+        }
 
         // Show modal with updated title for editing
         document.querySelector('#goal-modal .modal-title').textContent = '✏️ Edit Goal';
@@ -760,6 +864,7 @@ const ProFinance = {
 
     FamilyOffice.renderEntities();
     FamilyOffice.updateBalanceDisplay();
+    FamilyOffice.updateGoalsProgress();
     Notifications.updateBadge();
   },
 

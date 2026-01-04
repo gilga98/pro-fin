@@ -25,6 +25,11 @@ const FlowView = {
     // Update charts
     SankeyChart.update(state);
     WaterfallChart.update(state);
+    
+    // Update dispensable planner
+    if (typeof DispensablePlanner !== 'undefined') {
+      DispensablePlanner.render();
+    }
   },
 
   /**

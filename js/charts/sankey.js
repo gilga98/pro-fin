@@ -94,6 +94,49 @@ const SankeyChart = {
     };
 
     this.chart.setOption(option);
+    
+    // Show warning if goals exceed capacity
+    if (this.overcommitted && this.overcommittedAmount > 0) {
+      this.showOvercommittedWarning();
+    } else {
+      this.hideOvercommittedWarning();
+    }
+  },
+  
+  /**
+   * Show warning when goals exceed available funds
+   */
+  showOvercommittedWarning() {
+    let warningEl = document.getElementById('sankey-warning');
+    if (!warningEl) {
+      warningEl = document.createElement('div');
+      warningEl.id = 'sankey-warning';
+      warningEl.style.cssText = `
+        margin-top: var(--space-4);
+        padding: var(--space-3) var(--space-4);
+        background: rgba(239, 68, 68, 0.15);
+        border-left: 3px solid var(--accent-danger);
+        border-radius: var(--radius-lg);
+        font-size: var(--font-size-sm);
+        color: var(--accent-danger);
+      `;
+      this.container.parentNode.appendChild(warningEl);
+    }
+    warningEl.innerHTML = `
+      ⚠️ <strong>Goals exceed capacity:</strong> Your goal SIPs are ₹${this.overcommittedAmount.toLocaleString('en-IN')}/mo more than available funds. 
+      Consider reducing goals or increasing income.
+    `;
+    warningEl.style.display = 'block';
+  },
+  
+  /**
+   * Hide overcommitted warning
+   */
+  hideOvercommittedWarning() {
+    const warningEl = document.getElementById('sankey-warning');
+    if (warningEl) {
+      warningEl.style.display = 'none';
+    }
   },
 
   /**
@@ -158,9 +201,16 @@ const SankeyChart = {
       totalGoalSIPs += goal.monthlyContribution || 0;
     });
 
-    // Calculate dispensable
+    // Calculate net income and available funds
     const netIncome = grossIncome - totalTax;
-    const dispensable = Math.max(0, netIncome - totalExpenses - totalEMI - totalGoalSIPs);
+    const availableForGoals = Math.max(0, netIncome - totalExpenses - totalEMI);
+    
+    // CAP goal SIPs to available funds to prevent negative flows
+    const cappedGoalSIPs = Math.min(totalGoalSIPs, availableForGoals);
+    const overcommitted = totalGoalSIPs > availableForGoals;
+    
+    // Calculate dispensable with capped SIPs
+    const dispensable = Math.max(0, availableForGoals - cappedGoalSIPs);
 
     // Only create flow if we have income
     if (grossIncome > 0) {
@@ -184,20 +234,26 @@ const SankeyChart = {
         links.push({ source: 'Net Income', target: 'Loan EMI', value: totalEMI });
       }
 
-      if (totalGoalSIPs > 0) {
-        addNode('Goal Investments', '#8b5cf6');
-        links.push({ source: 'Net Income', target: 'Goal Investments', value: totalGoalSIPs });
+      if (cappedGoalSIPs > 0) {
+        // Show warning color if overcommitted
+        const goalColor = overcommitted ? '#ef4444' : '#8b5cf6';
+        addNode('Goal Investments', goalColor);
+        links.push({ source: 'Net Income', target: 'Goal Investments', value: cappedGoalSIPs });
 
-        // Break down by goal
+        // Break down by goal (proportionally reduced if overcommitted)
+        const reductionRatio = overcommitted ? availableForGoals / totalGoalSIPs : 1;
         data.goals?.forEach(goal => {
           if (goal.monthlyContribution > 0) {
             const goalInfo = Models.getGoalType(goal.type);
-            addNode(goal.name, goalInfo.color);
-            links.push({ 
-              source: 'Goal Investments', 
-              target: goal.name, 
-              value: goal.monthlyContribution 
-            });
+            const actualAllocation = Math.round(goal.monthlyContribution * reductionRatio);
+            if (actualAllocation > 0) {
+              addNode(goal.name, goalInfo.color);
+              links.push({ 
+                source: 'Goal Investments', 
+                target: goal.name, 
+                value: actualAllocation 
+              });
+            }
           }
         });
       }
@@ -207,6 +263,10 @@ const SankeyChart = {
         links.push({ source: 'Net Income', target: 'Dispensable', value: dispensable });
       }
     }
+    
+    // Store overcommitted state for warning display
+    this.overcommitted = overcommitted;
+    this.overcommittedAmount = overcommitted ? totalGoalSIPs - availableForGoals : 0;
 
     return { nodes, links };
   },
