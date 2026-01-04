@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css?v=3">
   <link rel="stylesheet" href="css/charts.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/css/shepherd.css"/>
   
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2310b981'/%3E%3Cpath d='M30 55 L45 70 L75 35' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
@@ -845,6 +846,13 @@
         <button class="modal-close" onclick="ProFinance.ui.closeModal('settings-modal')">&times;</button>
       </div>
       <div class="modal-body">
+        <h4 class="mb-4">Help & Guide</h4>
+        <div class="form-group">
+          <button class="btn btn-outline" onclick="ProFinance.ui.closeModal('settings-modal'); ProFinance.tour.start()">
+            🗺️ Start Feature Tour
+          </button>
+        </div>
+        
         <h4 class="mb-4">Tax Configuration</h4>
         <div class="form-group">
           <label class="form-label">Tax Regime</label>
@@ -920,6 +928,9 @@
   <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
   
+  <!-- Shepherd.js -->
+  <script src="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/js/shepherd.min.js"></script>
+
   <!-- Application Scripts -->
   <script src="js/state/store.js?v=2"></script>
   <script src="js/state/persistence.js"></script>
@@ -934,6 +945,7 @@
   <script src="js/components/notifications.js"></script>
   <script src="js/components/dispensable-planner.js"></script>
   <script src="js/components/investment-allocator.js?v=4"></script>
+  <script src="js/components/tour.js"></script>
   <script src="js/components/slider-accordion.js"></script>
   <script src="js/charts/sankey.js"></script>
   <script src="js/charts/waterfall.js"></script>

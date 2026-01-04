@@ -599,14 +599,31 @@ const Store = {
     // Determine actual contribution user can make
     const actualContribution = Math.min(availableFunds, requiredSIP);
     
-    // MONTE CARLO SIMULATION if enabled and MonteCarlo engine is available
+    // SIMPLIFIED ACHIEVABILITY CALCULATION
+    // Binary logic: sufficient funds (1.0) or insufficient (0.0)
+    // Only check if there's income data to work with
+    if (totalIncome > 0) {
+      // Simple check: can we afford the required SIP?
+      goal.achievability = availableFunds >= requiredSIP ? 1.0 : 0.0;
+    } else {
+      // No income data yet - neutral state
+      goal.achievability = 0.5;
+    }
+    
+    // Calculate projected value at target date with actual funding
+    const projectedValue = current * Math.pow(1 + monthlyRate, months) 
+      + actualContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+    
+    goal.projectedValue = Math.round(projectedValue);
+    
+    // OPTIONAL: Store Monte Carlo results for display (if available)
     const monteCarloEnabled = this.state.configuration?.monteCarlo?.enabled !== false;
     
-    if (monteCarloEnabled && typeof MonteCarlo !== 'undefined') {
+    if (monteCarloEnabled && typeof MonteCarlo !== 'undefined' && totalIncome > 0) {
       try {
         const iterations = this.state.configuration?.monteCarlo?.iterations || 1000;
         
-        // Run Monte Carlo simulation with actual contribution
+        // Run Monte Carlo simulation with actual contribution (for display only)
         const mcResults = MonteCarlo.simulateGoal({
           currentAmount: current,
           monthlyContribution: actualContribution,
@@ -617,7 +634,7 @@ const Store = {
           iterations: iterations
         });
         
-        // Store Monte Carlo results
+        // Store Monte Carlo results for optional display
         goal.monteCarloResults = {
           probability: mcResults.probability,
           percentiles: mcResults.percentiles,
@@ -628,22 +645,12 @@ const Store = {
           volatility: volatility
         };
         
-        // Use probability from Monte Carlo as achievability
-        goal.achievability = mcResults.probability;
-        
-        // Use median (p50) as projected value
-        goal.projectedValue = mcResults.percentiles.p50;
-        
       } catch (error) {
-        console.warn('Monte Carlo simulation failed, falling back to deterministic:', error);
-        // Fallback to deterministic calculation
-        this.calculateGoalMetricsDeterministic(goal, current, months, monthlyRate, 
-          target, actualContribution, availableFunds, requiredSIP);
+        console.warn('Monte Carlo simulation failed:', error);
+        goal.monteCarloResults = null;
       }
     } else {
-      // Deterministic fallback
-      this.calculateGoalMetricsDeterministic(goal, current, months, monthlyRate, 
-        target, actualContribution, availableFunds, requiredSIP);
+      goal.monteCarloResults = null;
     }
     
     // Common properties regardless of calculation method

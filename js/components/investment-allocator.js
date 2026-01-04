@@ -90,7 +90,14 @@ const InvestmentAllocator = {
                        oninput="InvestmentAllocator.updateAllocation('${alloc.id}', this.value)">
               </div>
               
-              <div class="allocation-percent" data-id="${alloc.id}" style="width: 35px; text-align: right;">${alloc.percent}%</div>
+              <div class="allocation-percent-input" style="display: flex; align-items: center; gap: 4px; width: 60px;">
+                <input type="number" class="allocation-input-sm" 
+                       style="width: 45px; padding: 4px 6px; text-align: right;"
+                       min="0" max="100" value="${alloc.percent}" 
+                       data-id="${alloc.id}"
+                       onchange="InvestmentAllocator.updateAllocation('${alloc.id}', this.value)">
+                <span style="font-size: 12px; color: var(--text-muted);">%</span>
+              </div>
               
               <div class="allocation-meta" style="flex-direction: row; align-items: center; gap: 5px;">
                 <input type="number" class="allocation-input-sm" value="${alloc.expectedReturn}" 
@@ -205,12 +212,16 @@ const InvestmentAllocator = {
     if (!container) return;
 
     this.currentAllocation.forEach(alloc => {
-      const percentEl = container.querySelector(`.allocation-percent[data-id="${alloc.id}"]`);
-      if (percentEl) percentEl.textContent = `${alloc.percent}%`;
-
-      const slider = container.querySelector(`input[data-id="${alloc.id}"]`);
+      // Update slider
+      const slider = container.querySelector(`input.allocation-range[data-id="${alloc.id}"]`);
       if (slider && parseInt(slider.value) !== alloc.percent) {
         slider.value = alloc.percent;
+      }
+      
+      // Update manual input
+      const manualInput = container.querySelector(`.allocation-percent-input input[data-id="${alloc.id}"]`);
+      if (manualInput && parseInt(manualInput.value) !== alloc.percent) {
+        manualInput.value = alloc.percent;
       }
     });
 

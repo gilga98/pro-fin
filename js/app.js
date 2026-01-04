@@ -83,6 +83,15 @@ const ProFinance = {
     if (!this.store.get('lastUpdated')) {
       this.showWelcome();
     }
+    
+    // Initialize and check for tour
+    if (ProFinance.tour) {
+      ProFinance.tour.init();
+      if (!ProFinance.tour.hasSeenTour()) {
+        // specific delay to ensure all UI elements are rendered
+        setTimeout(() => ProFinance.tour.start(), 1000);
+      }
+    }
   },
 
   /**
@@ -542,15 +551,15 @@ const ProFinance = {
         
         const rowId = `quick-exp-${Date.now()}`;
         const row = document.createElement('div');
-        row.className = 'quick-expense-row flex gap-2 mb-2 items-center';
+        row.className = 'quick-expense-row';
         row.id = rowId;
         row.innerHTML = `
-          <input type="text" class="form-input" placeholder="Name" style="flex: 2;" data-field="name">
-          <div class="form-input-wrapper" style="flex: 1;">
+          <input type="text" class="form-input" placeholder="Name" data-field="name">
+          <div class="form-input-wrapper">
             <span class="form-input-prefix">₹</span>
             <input type="number" class="form-input currency" placeholder="0" data-field="amount">
           </div>
-          <select class="form-select" style="flex: 1;" data-field="category">
+          <select class="form-select" data-field="category">
             <option value="housing">Housing</option>
             <option value="utilities">Utilities</option>
             <option value="transport">Transport</option>
@@ -560,6 +569,10 @@ const ProFinance = {
             <option value="healthcare">Healthcare</option>
             <option value="lifestyle">Lifestyle</option>
             <option value="other">Other</option>
+          </select>
+          <select class="form-select" data-field="expenseType">
+            <option value="fixed">Fixed</option>
+            <option value="variable">Variable</option>
           </select>
           <button type="button" class="btn btn-sm btn-outline" style="color: var(--accent-danger);" onclick="this.parentElement.remove()">✕</button>
         `;
@@ -577,13 +590,14 @@ const ProFinance = {
           const name = row.querySelector('[data-field="name"]')?.value?.trim();
           const amount = row.querySelector('[data-field="amount"]')?.value;
           const category = row.querySelector('[data-field="category"]')?.value || 'other';
+          const expenseType = row.querySelector('[data-field="expenseType"]')?.value || 'fixed';
           
           if (name && amount && parseFloat(amount) > 0) {
             Store.addExpense(entityId, {
               name,
               amount: parseFloat(amount),
               category,
-              expenseType: 'fixed'
+              expenseType: expenseType
             });
             savedCount++;
           }

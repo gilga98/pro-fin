@@ -75,15 +75,20 @@ const ReservoirView = {
       const sipLabel = isLoanFunded ? 'Save for Downpayment:' : 'Monthly SIP:';
       const sipTarget = isLoanFunded ? goal.downpaymentAmount : null;
       
-      // Determine achievability status
+      // Determine achievability status (simplified binary logic)
       let achievabilityClass = 'green';
-      let achievabilityText = 'On Track';
-      if (achievability < 0.5) {
+      let achievabilityText = 'Sufficient Funds';
+      
+      // Binary check: 1.0 = sufficient, < 1.0 = insufficient
+      if (achievability < 1.0) {
         achievabilityClass = 'red';
-        achievabilityText = 'At Risk';
-      } else if (achievability < 0.75) {
+        achievabilityText = 'Insufficient Funds';
+      }
+      
+      // If no income data (neutral state 0.5), show pending
+      if (achievability === 0.5) {
         achievabilityClass = 'yellow';
-        achievabilityText = 'Needs Attention';
+        achievabilityText = 'Add Income Data';
       }
       
       // Prepare Monte Carlo display if available
@@ -108,8 +113,7 @@ const ReservoirView = {
               <span>${Validators.formatCurrency(mc.percentiles.p90, true)}</span>
             </div>
             <div class="mt-2" style="font-size: 10px; color: var(--text-muted);">
-              Based on ${hasMonteCarlo ? '1000+ simulations' : 'deterministic calculation'} • 
-              ${Math.round(achievability * 100)}% probability of success
+              Based on ${hasMonteCarlo ? '1000+ simulations' : 'deterministic calculation'}
             </div>
           </div>
         `;
@@ -158,18 +162,6 @@ const ReservoirView = {
               <span class="goal-sip-label">${sipLabel}</span>
               <span class="goal-sip-value">${Validators.formatCurrency(goal.monthlyContribution || 0)}</span>
               ${sipTarget ? `<div class="text-xs text-muted">of ${Validators.formatCurrency(sipTarget, true)} downpayment</div>` : ''}
-            </div>
-            <div class="probability-indicator">
-              <div class="probability-ring" style="width: 40px; height: 40px;">
-                <svg viewBox="0 0 40 40">
-                  <circle class="probability-ring-bg" cx="20" cy="20" r="16" fill="none" stroke-width="3"></circle>
-                  <circle class="probability-ring-fill ${achievabilityClass === 'green' ? 'high' : achievabilityClass === 'yellow' ? 'medium' : 'low'}" 
-                          cx="20" cy="20" r="16" fill="none" stroke-width="3"
-                          stroke-dasharray="100.53" 
-                          stroke-dashoffset="${100.53 * (1 - achievability)}"></circle>
-                </svg>
-                <span class="probability-value" style="font-size: 10px;">${Math.round(achievability * 100)}%</span>
-              </div>
             </div>
           </div>
           
